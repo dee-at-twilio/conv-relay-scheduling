@@ -48,6 +48,22 @@ class AppointmentRepository:
             logger.exception("get_available_slots failed provider=%s", provider_id)
             return []
 
+    def get_booked_for_provider(self, provider_id: str, from_date: date, to_date: date) -> list[AppointmentRecord]:
+        formula = (
+            f"AND("
+            f"{{Status}}='booked',"
+            f"FIND('{provider_id}',ARRAYJOIN({{Provider}})),"
+            f"IS_AFTER({{Start Time}},'{from_date.isoformat()}'),"
+            f"IS_BEFORE({{Start Time}},'{to_date.isoformat()}')"
+            f")"
+        )
+        try:
+            records = airtable_client.get_all(_TABLE, formula)
+            return [_to_appointment(r) for r in records]
+        except Exception:
+            logger.exception("get_booked_for_provider failed provider=%s", provider_id)
+            return []
+
     def get_by_patient(self, patient_id: str) -> list[AppointmentRecord]:
         formula = (
             f"AND("
