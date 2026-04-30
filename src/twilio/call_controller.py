@@ -29,7 +29,7 @@ async def incoming_call():
     """Return TwiML that connects the call to ConversationRelay."""
     logger.info("incoming call received")
     response = VoiceResponse()
-    connect = Connect()
+    connect = Connect(action='config.base_url + "/action"')
     connect.conversation_relay(
         url=config.ws_url,
         welcome_greeting="Hello, I'm your scheduling assistant. How can I help you today?",
@@ -42,48 +42,48 @@ async def incoming_call():
     return Response(content=str(response), media_type="application/xml")
 
 
-# @router.post("/action")
-# async def action_callback(request: Request):
-#     """
-#     Twilio posts here when a ConversationRelay session ends.
-#     Three cases:
-#       - error 64105 → WS dropped unexpectedly, reconnect
-#       - handoffData present → enqueue to Flex
-#       - otherwise → hang up
-#     """
-#     form = await request.form()
-#     error_code = form.get("ErrorCode")
-#     handoff_data_raw = form.get("HandoffData")
+@router.post("/action")
+async def action_callback(request: Request):
+    """
+    Twilio posts here when a ConversationRelay session ends.
+    Three cases:
+      - error 64105 → WS dropped unexpectedly, reconnect
+      - handoffData present → enqueue to Flex
+      - otherwise → hang up
+    """
+    form = await request.form()
+    error_code = form.get("ErrorCode")
+    handoff_data_raw = form.get("HandoffData")
 
-#     logger.info("action callback ErrorCode=%s HandoffData=%s", error_code, handoff_data_raw)
+    logger.info("action callback ErrorCode=%s HandoffData=%s", error_code, handoff_data_raw)
 
-#     response = VoiceResponse()
+    response = VoiceResponse()
 
-#     if error_code and int(error_code) == _RECONNECT_ERROR_CODE:
-#         # Reconnect — issue a fresh ConversationRelay
-#         connect = Connect()
-#         connect.conversation_relay(
-#             url=config.ws_url,
-#             voice=config.tts_voice,
-#             language=config.tts_language,
-#             transcription_language=config.transcription_language
-#         )
-#         response.append(connect)
-#         return Response(content=str(response), media_type="application/xml")
+    if error_code and int(error_code) == _RECONNECT_ERROR_CODE:
+        # Reconnect — issue a fresh ConversationRelay
+        connect = Connect()
+        connect.conversation_relay(
+            url=config.ws_url,
+            voice=config.tts_voice,
+            language=config.tts_language,
+            transcription_language=config.transcription_language
+        )
+        response.append(connect)
+        return Response(content=str(response), media_type="application/xml")
 
-#     if handoff_data_raw:
-#         try:
-#             handoff = json.loads(handoff_data_raw)
-#             workflow_sid = handoff.get("workflowSid") or config.twilio_flex_workflow_sid
-#         except (json.JSONDecodeError, AttributeError):
-#             workflow_sid = config.twilio_flex_workflow_sid
+    if handoff_data_raw:
+        try:
+            handoff = json.loads(handoff_data_raw)
+            workflow_sid = handoff.get("workflowSid") or config.twilio_flex_workflow_sid
+        except (json.JSONDecodeError, AttributeError):
+            workflow_sid = config.twilio_flex_workflow_sid
 
-#         if workflow_sid:
-#             response.enqueue(None, workflow_sid=workflow_sid)
-#             return Response(content=str(response), media_type="application/xml")
+        if workflow_sid:
+            response.enqueue(None, workflow_sid=workflow_sid)
+            return Response(content=str(response), media_type="application/xml")
 
-#     response.hangup()
-#     return Response(content=str(response), media_type="application/xml")
+    response.hangup()
+    return Response(content=str(response), media_type="application/xml")
 
 
 @router.post("/status-callback")

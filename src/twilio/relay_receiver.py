@@ -1,9 +1,11 @@
 from __future__ import annotations
+import asyncio
 import json
 import logging
 from fastapi import WebSocket, WebSocketDisconnect
 
 from src.models.relay import parse_inbound, SetupMessage, PromptMessage, DTMFMessage, InterruptMessage, ErrorMessage
+from src.orchestration.conversation_graph import process_turn
 from src.session.session_manager import session_manager
 from src.twilio.relay_sender import ConversationRelaySender
 
@@ -14,6 +16,7 @@ async def handle_relay_websocket(ws: WebSocket) -> None:
     await ws.accept()
     sender = ConversationRelaySender(ws)
     call_sid: str | None = None
+    interrupted = asyncio.Event()
 
     try:
         async for raw in ws.iter_text():
@@ -29,23 +32,35 @@ async def handle_relay_websocket(ws: WebSocket) -> None:
             match msg:
                 case SetupMessage():
                     call_sid = msg.callSid
-                    from_number = msg.from_ or ""
-                    to_number = msg.to or ""
-                    session_manager.init_session(call_sid, from_number, to_number)
+                    session_manager.init_session(
+                        call_sid,
+                        from_number=msg.from_ or "",
+                        to_number=msg.to or "",
+                    )
 
                 case PromptMessage():
+                    if not call_sid:
+                        logger.warning("prompt received before setup")
+                        continue
+                    state = session_manager.get_session(call_sid)
+                    if not state:
+                        logger.warning("no session for callSid=%s", call_sid)
+                        continue
                     logger.info("prompt callSid=%s text=%r", call_sid, msg.voicePrompt)
-                    # Milestone 1 stub — echo back a fixed response
-                    await sender.speak("I heard you", last=True)
-
-                case DTMFMessage():
-                    logger.info("dtmf callSid=%s digit=%s", call_sid, msg.digit)
+                    asyncio.create_task(
+                        process_turn(state, msg.voicePrompt, sender, interrupted)
+                    )
 
                 case InterruptMessage():
+                    logger.info("interrupt callSid=%s", call_sid)
+                    interrupted.set()
                     if call_sid:
                         state = session_manager.get_session(call_sid)
                         if state:
                             state.user_interrupted = True
+
+                case DTMFMessage():
+                    logger.info("dtmf callSid=%s digit=%s", call_sid, msg.digit)
 
                 case ErrorMessage():
                     logger.error("relay error callSid=%s desc=%s", call_sid, msg.description)
