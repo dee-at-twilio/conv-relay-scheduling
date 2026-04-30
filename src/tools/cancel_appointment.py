@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 class CancelAppointmentTool(BaseTool):
     name = "cancel_appointment"
-    description = "Cancel an existing booked appointment. Requires the appointment_id."
+    description = "Cancel an existing booked appointment. You must call get_patient_appointments first to get the real appointment_id — never guess it."
 
     parameters = {
         "type": "object",

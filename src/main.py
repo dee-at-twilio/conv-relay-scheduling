@@ -3,9 +3,11 @@ import sys
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket
+from nicegui import ui
 
 from src.twilio.call_controller import router as twilio_router
 from src.twilio.relay_receiver import handle_relay_websocket
+from src.ui import dashboard, live_calls
 
 logging.basicConfig(
     level=logging.INFO,
@@ -24,7 +26,13 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Scheduling Agent", lifespan=lifespan)
 app.include_router(twilio_router)
 
+dashboard.create()
+live_calls.create()
+
 
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
     await handle_relay_websocket(ws)
+
+
+ui.run_with(app, mount_path="/pages", storage_secret="scheduling-agent")

@@ -16,7 +16,7 @@ class RescheduleAppointmentTool(BaseTool):
     description = (
         "Reschedule an existing booked appointment to a new time. "
         "Cancels the old appointment and creates a new one. "
-        "Use check_availability to find the new start/end times first."
+        "You must call get_patient_appointments first to get the real appointment_id — never guess it."
     )
 
     parameters = {

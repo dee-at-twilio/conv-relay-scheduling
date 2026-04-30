@@ -78,6 +78,27 @@ class AppointmentRepository:
             logger.exception("get_by_patient failed patient=%s", patient_id)
             return []
 
+    def create(
+        self,
+        provider_id: str,
+        patient_id: str,
+        start_time: datetime,
+        end_time: datetime,
+    ) -> AppointmentRecord:
+        fields = {
+            "Provider": [provider_id],
+            "Patient": [patient_id],
+            "Start Time": start_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "End Time": end_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "Status": "booked",
+        }
+        try:
+            record = airtable_client.create_record(_TABLE, fields)
+            return _to_appointment(record)
+        except Exception:
+            logger.exception("create appointment failed provider=%s patient=%s", provider_id, patient_id)
+            raise
+
     def book_slot(self, slot_id: str, patient_id: str) -> AppointmentRecord:
         """Link a patient to a pre-existing available slot and mark it booked."""
         try:

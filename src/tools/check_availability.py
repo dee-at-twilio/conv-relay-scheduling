@@ -89,9 +89,20 @@ class CheckAvailabilityTool(BaseTool):
         from_date = date.fromisoformat(input["from_date"]) if input.get("from_date") else today
         to_date = date.fromisoformat(input["to_date"]) if input.get("to_date") else today + timedelta(days=7)
 
-        # Partial, case-insensitive match so "Smith" matches "Dr. Jane Smith"
-        logger.info("tool=%s resolving provider name=%s", self.name, provider_name)
-        records = airtable_client.get_all(_PROVIDERS_TABLE, f"SEARCH(LOWER('{provider_name}'),LOWER({{Name}}))")
+        # Strip honorifics so "Doctor Austin James" and "Dr. James" both search by name only.
+        _HONORIFICS = {"dr", "dr.", "doctor", "mr", "mr.", "mrs", "mrs.", "ms", "ms."}
+        words = [w.lower() for w in provider_name.split() if w.lower() not in _HONORIFICS]
+
+        logger.info("tool=%s resolving provider name=%s words=%s", self.name, provider_name, words)
+        if not words:
+            return ToolResult(tool_name=self.name, success=False, error=f"No provider found matching '{provider_name}'. Please ask the patient for more details.")
+
+        if len(words) == 1:
+            formula = f"SEARCH('{words[0]}',LOWER({{Name}}))"
+        else:
+            parts = ",".join(f"SEARCH('{w}',LOWER({{Name}}))" for w in words)
+            formula = f"AND({parts})"
+        records = airtable_client.get_all(_PROVIDERS_TABLE, formula)
 
         if not records:
             return ToolResult(tool_name=self.name, success=False, error=f"No provider found matching '{provider_name}'. Please ask the patient for more details.")

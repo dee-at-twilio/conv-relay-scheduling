@@ -4,6 +4,8 @@ import json
 import logging
 from fastapi import WebSocket, WebSocketDisconnect
 
+from src.events.event_bus import event_bus
+from src.events.event_types import SessionEvent, TranscriptEvent
 from src.models.relay import parse_inbound, SetupMessage, PromptMessage, DTMFMessage, InterruptMessage, ErrorMessage
 from src.orchestration.conversation_graph import process_turn
 from src.session.session_manager import session_manager
@@ -32,11 +34,12 @@ async def handle_relay_websocket(ws: WebSocket) -> None:
             match msg:
                 case SetupMessage():
                     call_sid = msg.callSid
-                    session_manager.init_session(
+                    state = session_manager.init_session(
                         call_sid,
                         from_number=msg.from_ or "",
                         to_number=msg.to or "",
                     )
+                    event_bus.publish(SessionEvent(call_sid=call_sid, event="started", from_number=msg.from_ or ""))
 
                 case PromptMessage():
                     if not call_sid:
@@ -47,6 +50,7 @@ async def handle_relay_websocket(ws: WebSocket) -> None:
                         logger.warning("no session for callSid=%s", call_sid)
                         continue
                     logger.info("prompt callSid=%s text=%r", call_sid, msg.voicePrompt)
+                    event_bus.publish(TranscriptEvent(call_sid=call_sid, role="user", text=msg.voicePrompt))
                     asyncio.create_task(
                         process_turn(state, msg.voicePrompt, sender, interrupted)
                     )
@@ -73,3 +77,4 @@ async def handle_relay_websocket(ws: WebSocket) -> None:
     finally:
         if call_sid:
             session_manager.end_session(call_sid)
+            event_bus.publish(SessionEvent(call_sid=call_sid, event="ended"))
