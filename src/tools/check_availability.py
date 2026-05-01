@@ -15,19 +15,12 @@ _PROVIDERS_TABLE = "Providers"
 
 # Business hours and slot duration — adjust as needed for the demo
 _SLOT_DURATION_MINS = 30
-_BUSINESS_START_HOUR = 9   # 9 AM
-_BUSINESS_END_HOUR = 17    # 5 PM
+_BUSINESS_START_HOUR = 9
+_BUSINESS_END_HOUR = 17
+_HONORIFICS = {"dr", "dr.", "doctor", "mr", "mr.", "mrs", "mrs.", "ms", "ms."}
 
 
-def _generate_slots(
-    from_date: date,
-    to_date: date,
-    booked: list,
-) -> list[dict]:
-    """
-    Generate all 30-min slots within business hours, minus any already booked.
-    Returns list of {start, end} dicts (ISO strings, no slot_id needed).
-    """
+def _generate_slots(from_date: date, to_date: date, booked: list) -> list[dict]:
     booked_ranges = [(a.start_time, a.end_time) for a in booked]
     slots = []
     current_date = from_date
@@ -83,14 +76,12 @@ class CheckAvailabilityTool(BaseTool):
         "required": ["provider_name"],
     }
 
-    async def run(self, input: dict[str, Any], state: SessionState) -> ToolResult:
-        provider_name = input.get("provider_name", "")
+    async def run(self, args: dict[str, Any], state: SessionState) -> ToolResult:
+        provider_name = args.get("provider_name", "")
         today = date.today()
-        from_date = date.fromisoformat(input["from_date"]) if input.get("from_date") else today
-        to_date = date.fromisoformat(input["to_date"]) if input.get("to_date") else today + timedelta(days=7)
+        from_date = date.fromisoformat(args["from_date"]) if args.get("from_date") else today
+        to_date = date.fromisoformat(args["to_date"]) if args.get("to_date") else today + timedelta(days=7)
 
-        # Strip honorifics so "Doctor Austin James" and "Dr. James" both search by name only.
-        _HONORIFICS = {"dr", "dr.", "doctor", "mr", "mr.", "mrs", "mrs.", "ms", "ms."}
         words = [w.lower() for w in provider_name.split() if w.lower() not in _HONORIFICS]
 
         logger.info("tool=%s resolving provider name=%s words=%s", self.name, provider_name, words)

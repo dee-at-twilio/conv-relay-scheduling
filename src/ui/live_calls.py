@@ -5,6 +5,7 @@ from nicegui import ui
 
 from src.events.event_bus import event_bus
 from src.events.event_types import SessionEvent, ToolCallEvent, TranscriptEvent
+from src.session.session_manager import session_manager
 from src.ui.call_log import get_all_call_sids, get as get_call_log
 
 _POLL_INTERVAL = 0.3  # seconds
@@ -31,7 +32,24 @@ def create() -> None:
             with page_container:
                 with ui.card().classes("w-full mb-4") as card:
                     call_cards[call_sid] = card
-                    ui.label(f"Call {call_sid[-8:]}  ·  {from_number}").classes("font-semibold text-base mb-2")
+                    with ui.row().classes("w-full items-center justify-between mb-2"):
+                        ui.label(f"Call {call_sid[-8:]}  ·  {from_number}").classes("font-semibold text-base")
+                        with ui.row().classes("gap-2"):
+                            lang_select = ui.select(
+                                {"en-US": "English", "es-US": "Spanish"},
+                                value="en-US",
+                                label="Language",
+                            ).classes("w-32")
+                            async def on_lang_change(e, cid=call_sid, sel=lang_select):
+                                sender = session_manager.get_sender(cid)
+                                if sender:
+                                    await sender.switch_language(sel.value, sel.value)
+                            lang_select.on("update:model-value", on_lang_change)
+                            async def on_end_call(cid=call_sid):
+                                sender = session_manager.get_sender(cid)
+                                if sender:
+                                    await sender.end_session()
+                            ui.button("End Call", on_click=on_end_call).classes("bg-red-500 text-white text-xs")
                     with ui.row().classes("w-full gap-4"):
                         with ui.column().classes("flex-1"):
                             ui.label("Transcript").classes("font-medium text-xs text-gray-500 uppercase mb-1")

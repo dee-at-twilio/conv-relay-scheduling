@@ -22,7 +22,7 @@ class BaseTool(ABC):
         ...
 
     @abstractmethod
-    async def run(self, input: dict[str, Any], state: SessionState) -> ToolResult: ...
+    async def run(self, args: dict[str, Any], state: SessionState) -> ToolResult: ...
 
 
 class ToolRegistry:
@@ -48,8 +48,8 @@ class ToolRegistry:
             for tool in self._tools.values()
         ]
 
-    async def run(self, name: str, input: dict[str, Any], state: SessionState) -> ToolResult:
+    async def run(self, name: str, args: dict[str, Any], state: SessionState) -> ToolResult:
         tool = self._tools.get(name)
         if not tool:
             return ToolResult(tool_name=name, success=False, error=f"Unknown tool: {name}")
-        return await tool.run(input, state)
+        return await tool.run(args, state)

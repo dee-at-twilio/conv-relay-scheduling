@@ -46,12 +46,12 @@ class RescheduleAppointmentTool(BaseTool):
         "required": ["appointment_id", "provider_id", "patient_id", "start", "end"],
     }
 
-    async def run(self, input: dict[str, Any], state: SessionState) -> ToolResult:
-        appointment_id = input.get("appointment_id", "")
-        provider_id = input.get("provider_id", "")
-        patient_id = input.get("patient_id", "")
-        start = input.get("start", "")
-        end = input.get("end", "")
+    async def run(self, args: dict[str, Any], state: SessionState) -> ToolResult:
+        appointment_id = args.get("appointment_id", "")
+        provider_id = args.get("provider_id", "")
+        patient_id = args.get("patient_id", "")
+        start = args.get("start", "")
+        end = args.get("end", "")
 
         logger.info("tool=%s cancel old=%s patient=%s new start=%s", self.name, appointment_id, patient_id, start)
         try:

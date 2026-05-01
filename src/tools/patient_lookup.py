@@ -28,15 +28,18 @@ class PatientLookupTool(BaseTool):
         },
     }
 
-    async def run(self, input: dict[str, Any], state: SessionState) -> ToolResult:
-        phone = input.get("phone")
-        name = input.get("name")
+    async def run(self, args: dict[str, Any], state: SessionState) -> ToolResult:
+        phone = args.get("phone")
+        name = args.get("name")
 
         if not phone and not name:
             return ToolResult(tool_name=self.name, success=False, error="Provide phone or name to look up a patient.")
 
         patient = None
         if phone:
+
+
+            
             logger.info("tool=%s looking up phone=%s", self.name, phone)
             patient = patient_repo.find_by_phone(phone)
         if not patient and name:

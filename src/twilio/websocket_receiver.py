@@ -18,6 +18,7 @@ async def handle_relay_websocket(ws: WebSocket) -> None:
     await ws.accept()
     sender = ConversationRelaySender(ws)
     call_sid: str | None = None
+    state = None
     interrupted = asyncio.Event()
 
     try:
@@ -39,15 +40,12 @@ async def handle_relay_websocket(ws: WebSocket) -> None:
                         from_number=msg.from_ or "",
                         to_number=msg.to or "",
                     )
+                    session_manager.register_sender(call_sid, sender)
                     event_bus.publish(SessionEvent(call_sid=call_sid, event="started", from_number=msg.from_ or ""))
 
                 case PromptMessage():
                     if not call_sid:
                         logger.warning("prompt received before setup")
-                        continue
-                    state = session_manager.get_session(call_sid)
-                    if not state:
-                        logger.warning("no session for callSid=%s", call_sid)
                         continue
                     logger.info("prompt callSid=%s text=%r", call_sid, msg.voicePrompt)
                     event_bus.publish(TranscriptEvent(call_sid=call_sid, role="user", text=msg.voicePrompt))
@@ -58,10 +56,8 @@ async def handle_relay_websocket(ws: WebSocket) -> None:
                 case InterruptMessage():
                     logger.info("interrupt callSid=%s", call_sid)
                     interrupted.set()
-                    if call_sid:
-                        state = session_manager.get_session(call_sid)
-                        if state:
-                            state.user_interrupted = True
+                    if state:
+                        state.user_interrupted = True
 
                 case DTMFMessage():
                     logger.info("dtmf callSid=%s digit=%s", call_sid, msg.digit)

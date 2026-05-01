@@ -25,8 +25,8 @@ class CancelAppointmentTool(BaseTool):
         "required": ["appointment_id"],
     }
 
-    async def run(self, input: dict[str, Any], state: SessionState) -> ToolResult:
-        appointment_id = input.get("appointment_id", "")
+    async def run(self, args: dict[str, Any], state: SessionState) -> ToolResult:
+        appointment_id = args.get("appointment_id", "")
 
         logger.info("tool=%s cancelling appointment=%s", self.name, appointment_id)
         try:
