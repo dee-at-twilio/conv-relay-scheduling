@@ -1,63 +1,13 @@
 from __future__ import annotations
+from collections import deque
+
 from nicegui import ui
 
 from src.events.event_bus import event_bus
 from src.events.event_types import SessionEvent, ToolCallEvent, TranscriptEvent
-from src.session.session_manager import session_manager
+from src.ui.call_log import get_all_call_sids, get as get_call_log
 
-# Per-call UI state held in process memory — keyed by call_sid
-_transcript_containers: dict[str, ui.column] = {}
-_tool_containers: dict[str, ui.column] = {}
-_call_cards: dict[str, ui.card] = {}
-
-
-def _add_transcript_line(call_sid: str, role: str, text: str) -> None:
-    container = _transcript_containers.get(call_sid)
-    if not container:
-        return
-    color = "text-blue-700" if role == "user" else "text-gray-800"
-    prefix = "Patient: " if role == "user" else "Agent: "
-    with container:
-        ui.label(f"{prefix}{text}").classes(f"text-sm {color} py-0.5")
-
-
-def _add_tool_line(call_sid: str, tool_name: str, success: bool | None, result: dict | None) -> None:
-    container = _tool_containers.get(call_sid)
-    if not container:
-        return
-    status = "✓" if success else "✗"
-    color = "text-green-700" if success else "text-red-700"
-    summary = str(result)[:120] if result else ""
-    with container:
-        ui.label(f"{status} {tool_name}  {summary}").classes(f"text-xs font-mono {color} py-0.5")
-
-
-def _build_call_card(call_sid: str, from_number: str, page_container: ui.element) -> None:
-    with page_container:
-        with ui.card().classes("w-full mb-4") as card:
-            _call_cards[call_sid] = card
-            ui.label(f"Call {call_sid[-8:]}  ·  {from_number}").classes("font-semibold text-base mb-2")
-
-            with ui.row().classes("w-full gap-4"):
-                with ui.column().classes("flex-1"):
-                    ui.label("Transcript").classes("font-medium text-xs text-gray-500 uppercase mb-1")
-                    with ui.scroll_area().classes("h-64 border rounded p-2"):
-                        col = ui.column().classes("w-full")
-                        _transcript_containers[call_sid] = col
-
-                with ui.column().classes("flex-1"):
-                    ui.label("Tool Calls").classes("font-medium text-xs text-gray-500 uppercase mb-1")
-                    with ui.scroll_area().classes("h-64 border rounded p-2"):
-                        col = ui.column().classes("w-full")
-                        _tool_containers[call_sid] = col
-
-
-def _remove_call_card(call_sid: str) -> None:
-    card = _call_cards.pop(call_sid, None)
-    if card:
-        card.delete()
-    _transcript_containers.pop(call_sid, None)
-    _tool_containers.pop(call_sid, None)
+_POLL_INTERVAL = 0.3  # seconds
 
 
 def create() -> None:
@@ -69,31 +19,87 @@ def create() -> None:
         page_container = ui.column().classes("w-full")
         no_calls_label = ui.label("No active calls.").classes("text-gray-400")
 
-        # Seed any calls already active when the page loads
-        for call_sid, state in list(session_manager._sessions.items()):
+        transcript_containers: dict[str, ui.column] = {}
+        tool_containers: dict[str, ui.column] = {}
+        call_cards: dict[str, ui.card] = {}
+
+        # Events from the bus land here; ui.timer drains it inside the client context
+        pending: deque = deque()
+
+        def build_call_card(call_sid: str, from_number: str) -> None:
             no_calls_label.set_visibility(False)
-            _build_call_card(call_sid, state.from_number, page_container)
-            for msg in state.messages:
-                if msg.role in ("user", "assistant") and not (msg.content or "").startswith('{"tool_calls":'):
-                    _add_transcript_line(call_sid, msg.role, msg.content or "")
+            with page_container:
+                with ui.card().classes("w-full mb-4") as card:
+                    call_cards[call_sid] = card
+                    ui.label(f"Call {call_sid[-8:]}  ·  {from_number}").classes("font-semibold text-base mb-2")
+                    with ui.row().classes("w-full gap-4"):
+                        with ui.column().classes("flex-1"):
+                            ui.label("Transcript").classes("font-medium text-xs text-gray-500 uppercase mb-1")
+                            with ui.scroll_area().classes("h-64 border rounded p-2"):
+                                transcript_containers[call_sid] = ui.column().classes("w-full")
+                        with ui.column().classes("flex-1"):
+                            ui.label("Tool Calls").classes("font-medium text-xs text-gray-500 uppercase mb-1")
+                            with ui.scroll_area().classes("h-64 border rounded p-2"):
+                                tool_containers[call_sid] = ui.column().classes("w-full")
 
-        def on_event(event: SessionEvent | TranscriptEvent | ToolCallEvent):
-            if isinstance(event, SessionEvent):
-                if event.event == "started":
-                    no_calls_label.set_visibility(False)
-                    _build_call_card(event.call_sid, event.from_number, page_container)
-                elif event.event == "ended":
-                    _remove_call_card(event.call_sid)
-                    if not _call_cards:
-                        no_calls_label.set_visibility(True)
+        def remove_call_card(call_sid: str) -> None:
+            card = call_cards.pop(call_sid, None)
+            if card:
+                card.delete()
+            transcript_containers.pop(call_sid, None)
+            tool_containers.pop(call_sid, None)
+            if not call_cards:
+                no_calls_label.set_visibility(True)
 
-            elif isinstance(event, TranscriptEvent):
-                _add_transcript_line(event.call_sid, event.role, event.text)
+        def add_transcript_line(call_sid: str, role: str, text: str) -> None:
+            col = transcript_containers.get(call_sid)
+            if not col:
+                return
+            color = "text-blue-700" if role == "user" else "text-gray-800"
+            prefix = "Patient: " if role == "user" else "Agent: "
+            with col:
+                ui.label(f"{prefix}{text}").classes(f"text-sm {color} py-0.5")
 
-            elif isinstance(event, ToolCallEvent):
-                _add_tool_line(event.call_sid, event.tool_name, event.success, event.result)
+        def add_tool_line(call_sid: str, tool_name: str, success: bool | None, result: dict | None) -> None:
+            col = tool_containers.get(call_sid)
+            if not col:
+                return
+            status = "✓" if success else "✗"
+            color = "text-green-700" if success else "text-red-700"
+            summary = str(result)[:120] if result else ""
+            with col:
+                ui.label(f"{status} {tool_name}  {summary}").classes(f"text-xs font-mono {color} py-0.5")
+
+        # Seed from the in-memory log so history survives page navigation
+        for call_sid in get_all_call_sids():
+            for event in get_call_log(call_sid):
+                if isinstance(event, SessionEvent) and event.event == "started":
+                    build_call_card(call_sid, event.from_number)
+                elif isinstance(event, TranscriptEvent):
+                    if call_sid not in transcript_containers:
+                        build_call_card(call_sid, "")
+                    add_transcript_line(call_sid, event.role, event.text)
+                elif isinstance(event, ToolCallEvent):
+                    add_tool_line(call_sid, event.tool_name, event.success, event.result)
+
+        def on_event(event: SessionEvent | TranscriptEvent | ToolCallEvent) -> None:
+            pending.append(event)
+
+        def drain() -> None:
+            while pending:
+                event = pending.popleft()
+                if isinstance(event, SessionEvent):
+                    if event.event == "started":
+                        build_call_card(event.call_sid, event.from_number)
+                    elif event.event == "ended":
+                        remove_call_card(event.call_sid)
+                elif isinstance(event, TranscriptEvent):
+                    if event.call_sid not in transcript_containers:
+                        build_call_card(event.call_sid, "")
+                    add_transcript_line(event.call_sid, event.role, event.text)
+                elif isinstance(event, ToolCallEvent):
+                    add_tool_line(event.call_sid, event.tool_name, event.success, event.result)
 
         event_bus.subscribe(on_event)
-
-        # Unsubscribe when the page is closed so we don't accumulate dead subscribers
+        ui.timer(_POLL_INTERVAL, drain)
         ui.context.client.on_disconnect(lambda: event_bus.unsubscribe(on_event))
