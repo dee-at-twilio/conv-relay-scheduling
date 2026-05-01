@@ -26,10 +26,6 @@ class ScheduleAppointmentTool(BaseTool):
                 "type": "string",
                 "description": "The Airtable record ID of the provider, from check_availability.",
             },
-            "patient_id": {
-                "type": "string",
-                "description": "The Airtable record ID of the patient, from lookup_patient.",
-            },
             "start": {
                 "type": "string",
                 "description": "Appointment start time in ISO format, from check_availability.",
@@ -39,14 +35,17 @@ class ScheduleAppointmentTool(BaseTool):
                 "description": "Appointment end time in ISO format, from check_availability.",
             },
         },
-        "required": ["provider_id", "patient_id", "start", "end"],
+        "required": ["provider_id", "start", "end"],
     }
 
     async def run(self, args: dict[str, Any], state: SessionState) -> ToolResult:
         provider_id = args.get("provider_id", "")
-        patient_id = args.get("patient_id", "")
+        patient_id = state.patient_id or ""
         start = args.get("start", "")
         end = args.get("end", "")
+
+        if not patient_id:
+            return ToolResult(tool_name=self.name, success=False, error="Patient not identified. Please call lookup_patient first.")
 
         logger.info("tool=%s provider=%s patient=%s start=%s", self.name, provider_id, patient_id, start)
         try:

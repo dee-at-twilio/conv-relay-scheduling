@@ -26,12 +26,16 @@ class GetPatientAppointmentsTool(BaseTool):
     }
 
     async def run(self, args: dict[str, Any], state: SessionState) -> ToolResult:
-        patient = patient_repo.find_by_phone(state.from_number)
-        if not patient:
-            return ToolResult(tool_name=self.name, success=False, error="Could not find a patient record for this phone number.")
+        if state.patient_name:
+            patient_name = state.patient_name
+        else:
+            patient = patient_repo.find_by_phone(state.from_number)
+            if not patient:
+                return ToolResult(tool_name=self.name, success=False, error="Could not find a patient record for this phone number.")
+            patient_name = patient.name
 
-        logger.info("tool=%s patient=%s", self.name, patient.id)
-        appointments = appointment_repo.get_by_patient(patient.id)
+        logger.info("tool=%s patient=%s", self.name, patient_name)
+        appointments = appointment_repo.get_by_patient(patient_name)
         if not appointments:
             return ToolResult(tool_name=self.name, success=True, data={"appointments": [], "message": "No upcoming appointments found."})
 
@@ -45,5 +49,5 @@ class GetPatientAppointmentsTool(BaseTool):
             }
             for a in appointments
         ]
-        logger.info("tool=%s found %d appointment(s) for patient=%s", self.name, len(data), patient.id)
+        logger.info("tool=%s found %d appointment(s) for patient=%s", self.name, len(data), patient_name)
         return ToolResult(tool_name=self.name, success=True, data={"appointments": data})

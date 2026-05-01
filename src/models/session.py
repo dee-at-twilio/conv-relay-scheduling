@@ -21,3 +21,5 @@ class SessionState(BaseModel):
     handoff_required: bool = False
     handoff_data: dict | None = None
     language: str = "en-US"
+    patient_id: str | None = None
+    patient_name: str | None = None

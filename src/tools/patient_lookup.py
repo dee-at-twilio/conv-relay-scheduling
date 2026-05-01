@@ -12,24 +12,20 @@ logger = logging.getLogger(__name__)
 
 class PatientLookupTool(BaseTool):
     name = "lookup_patient"
-    description = "Look up a patient record by phone number or name. Call this before booking or cancelling an appointment."
+    description = "Look up a patient record. Automatically uses the caller's phone number — no need to ask the patient for it. Optionally pass a name if looking up by name instead."
 
     parameters = {
         "type": "object",
         "properties": {
-            "phone": {
-                "type": "string",
-                "description": "Patient phone number in E.164 format, e.g. +15551234567",
-            },
             "name": {
                 "type": "string",
-                "description": "Patient full name, if phone is not available",
+                "description": "Patient full name — only needed if looking up someone other than the caller.",
             },
         },
     }
 
     async def run(self, args: dict[str, Any], state: SessionState) -> ToolResult:
-        phone = args.get("phone")
+        phone = state.from_number
         name = args.get("name")
 
         if not phone and not name:
@@ -50,5 +46,7 @@ class PatientLookupTool(BaseTool):
             logger.info("tool=%s patient not found phone=%s name=%s", self.name, phone, name)
             return ToolResult(tool_name=self.name, success=False, error="Patient not found. Verify the name or phone number.")
 
+        state.patient_id = patient.id
+        state.patient_name = patient.name
         logger.info("tool=%s found patient id=%s name=%s", self.name, patient.id, patient.name)
         return ToolResult(tool_name=self.name, success=True, data=patient.model_dump())

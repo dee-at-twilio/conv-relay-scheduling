@@ -64,18 +64,18 @@ class AppointmentRepository:
             logger.exception("get_booked_for_provider failed provider=%s", provider_id)
             return []
 
-    def get_by_patient(self, patient_id: str) -> list[AppointmentRecord]:
+    def get_by_patient(self, patient_name: str) -> list[AppointmentRecord]:
         formula = (
             f"AND("
             f"{{Status}}='booked',"
-            f"FIND('{patient_id}',ARRAYJOIN({{Patient}}))"
+            f"FIND('{patient_name}',ARRAYJOIN({{Patient}}))"
             f")"
         )
         try:
             records = airtable_client.get_all(_TABLE, formula)
             return [_to_appointment(r) for r in records]
         except Exception:
-            logger.exception("get_by_patient failed patient=%s", patient_id)
+            logger.exception("get_by_patient failed patient=%s", patient_name)
             return []
 
     def create(
