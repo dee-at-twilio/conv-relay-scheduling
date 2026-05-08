@@ -1,5 +1,5 @@
 # Scheduling agent with Conversation Relay and Airtable
-A patient appointment scheduling voice agent using Twilio Programmable Voice and Conversation Relay.
+A patient appointment scheduling voice agent using Twilio Programmable Voice and Conversation Relay in Python/FastAPI.
 
 ![Appointments](docs/appointments.png)
 
@@ -107,6 +107,7 @@ You are a courteous, professional patient appointment scheduling assistant for "
 ```
 
 **Tool Definitions**
+
 The agent needs access to [specific functions](https://github.com/dee-at-twilio/conv-relay-scheduling/blob/main/src/tools/registry.py) to interact with the scheduling system.
 
 The following tools have been made available to the agent:
@@ -133,6 +134,7 @@ The client exposes three operations. All three follow the same pattern - throttl
 - `update_record` 
 
 For patient calls to work right, ensure you have entered provider names in the Provider table.
+
 ![Providers](docs/providers.png)
 
 ## Test
@@ -142,3 +144,7 @@ Start the server
 python3 -m uvicorn src.main:app --reload --port 8000
 ```
 The app should now run on the above port and is ready to accept appointment scheduling calls.
+
+![Live calls UI](docs/live-2.png)
+
+![Live calls UI](docs/live-calls-3.png)

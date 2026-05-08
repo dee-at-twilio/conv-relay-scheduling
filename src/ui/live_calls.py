@@ -28,6 +28,8 @@ def create() -> None:
         pending: deque = deque()
 
         def build_call_card(call_sid: str, from_number: str) -> None:
+            if call_sid in call_cards:
+                return
             no_calls_label.set_visibility(False)
             with page_container:
                 with ui.card().classes("w-full mb-4") as card:
@@ -54,7 +56,7 @@ def create() -> None:
                         with ui.column().classes("flex-1"):
                             ui.label("Transcript").classes("font-medium text-xs text-gray-500 uppercase mb-1")
                             with ui.scroll_area().classes("h-64 border rounded p-2"):
-                                transcript_containers[call_sid] = ui.column().classes("w-full")
+                                transcript_containers[call_sid] = ui.column().classes("w-full flex-col-reverse")
                         with ui.column().classes("flex-1"):
                             ui.label("Tool Calls").classes("font-medium text-xs text-gray-500 uppercase mb-1")
                             with ui.scroll_area().classes("h-64 border rounded p-2"):
@@ -73,10 +75,11 @@ def create() -> None:
             col = transcript_containers.get(call_sid)
             if not col:
                 return
-            color = "text-blue-700" if role == "user" else "text-gray-800"
-            prefix = "Patient: " if role == "user" else "Agent: "
+            is_user = role == "user"
+            align = "" if is_user else "ml-auto"
+            color = "bg-blue-100 text-blue-900" if is_user else "bg-gray-100 text-gray-800"
             with col:
-                ui.label(f"{prefix}{text}").classes(f"text-sm {color} py-0.5")
+                ui.label(text).classes(f"text-sm {color} rounded px-2 py-1 max-w-xs {align}")
 
         def add_tool_line(call_sid: str, tool_name: str, success: bool | None, result: dict | None) -> None:
             col = tool_containers.get(call_sid)

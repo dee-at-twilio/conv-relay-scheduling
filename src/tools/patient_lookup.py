@@ -32,10 +32,7 @@ class PatientLookupTool(BaseTool):
             return ToolResult(tool_name=self.name, success=False, error="Provide phone or name to look up a patient.")
 
         patient = None
-        if phone:
-
-
-            
+        if phone:            
             logger.info("tool=%s looking up phone=%s", self.name, phone)
             patient = patient_repo.find_by_phone(phone)
         if not patient and name:
@@ -44,7 +41,7 @@ class PatientLookupTool(BaseTool):
 
         if not patient:
             logger.info("tool=%s patient not found phone=%s name=%s", self.name, phone, name)
-            return ToolResult(tool_name=self.name, success=False, error="Patient not found. Verify the name or phone number.")
+            return ToolResult(tool_name=self.name, success=False, error="Patient not found. Ask the caller to confirm their name, then call register_patient to create their record before booking.")
 
         state.patient_id = patient.id
         state.patient_name = patient.name
