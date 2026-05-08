@@ -29,7 +29,7 @@ async def incoming_call():
     """Return TwiML that connects the call to ConversationRelay."""
     logger.info("incoming call received")
     response = VoiceResponse()
-    connect = Connect(action=config.base_url + "/action")
+    connect = Connect(action=config.http_url + "/action")
     connect.conversation_relay(
         url=config.ws_url,
         welcome_greeting="Hello, I'm your scheduling assistant. How can I help you today?",
