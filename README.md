@@ -147,4 +147,4 @@ The app should now run on the above port and is ready to accept appointment sche
 
 ![Live calls UI](docs/live-2.png)
 
-![Live calls UI](docs/live-calls-3.png)
+![Live calls test with BlueJay](docs/live-calls-3.png)
