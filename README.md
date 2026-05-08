@@ -1,4 +1,17 @@
 # Scheduling agent with Conversation Relay and Airtable
+A patient appointment scheduling voice agent using Twilio Programmable Voice and Conversation Relay.
+
+![Appointments](docs/appointments.png)
+
+## Prerequisites
+
+Before getting started, here's what you'll need:
+- A Twilio account.
+- A Twilio [phone number](https://www.twilio.com/docs/phone-numbers). Twilio free trial gives you a small preloaded balance. Purchase a number as detailed [here](https://www.twilio.com/docs/usage/tutorials/how-to-use-your-free-trial-account#get-your-first-phone-number). 
+- An API key for the LLM powering your scheduling agent. Eg. OpenAI
+- [Airtable](https://airtable.com/) as the scheduling backend for the demo featured in this blog.
+- Python 3.13 or later installed
+- A free [ngrok](https://ngrok.com/download) account
 
 ## Set up your Twilio Programmable Voice number
 To get started, you'll need a Twilio phone number capable of handling incoming voice calls. Check [this tutorial](https://www.twilio.com/docs/usage/tutorials/how-to-use-your-free-trial-account#get-your-first-phone-number) on how to purchase your first number. 
@@ -119,7 +132,8 @@ The client exposes three operations. All three follow the same pattern - throttl
 - `create_record`
 - `update_record` 
 
-
+For patient calls to work right, ensure you have entered provider names in the Provider table.
+![Providers](docs/providers.png)
 
 ## Test
 
