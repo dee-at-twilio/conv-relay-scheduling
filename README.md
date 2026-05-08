@@ -10,11 +10,17 @@ To get started, you'll need a Twilio phone number capable of handling incoming v
     cd conv-relay-scheduling
     ```
 3. Install dependencies
+    ```sh
     npm install -r requirements.txt
+    ```
 4. Copy the sample environment file and configure the environment variables
+    ```
     cp .env.sample .env
+    ```
 5. If using the free version of ngrok, run the server on port 8000 and copy the url generated 
+    ```
     ngrok http 8000
+    ```
 
 Once created, open .env in your code editor. You are required to set the following environment variables for the app to function properly
 | Variable Name | Description | 
@@ -107,11 +113,13 @@ Create the following 3 tables (exact names):
 - Appointments - Provider (link→Providers), Patient (link→Patients), Start Time, End Time, Status (single select), Notes
 
 Rather than calling the SDK directly throughout the app, we wrap it in a [single](https://github.com/dee-at-twilio/conv-relay-scheduling/blob/main/src/airtable/client.py) `AirtableClient` class that handles two concerns: **rate limiting** and **logging**. 
-The client exposes three operations: 
+
+The client exposes three operations. All three follow the same pattern - throttle, log, call, log result, and re-raise exceptions so callers can decide how to handle failures.
 - `get_all` 
 - `create_record`
 - `update_record` 
-All three follow the same pattern - throttle, log, call, log result, and re-raise exceptions so callers can decide how to handle failures.
+
+
 
 ## Test
 
