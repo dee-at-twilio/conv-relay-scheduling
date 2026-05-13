@@ -5,7 +5,7 @@ from fastapi import FastAPI, WebSocket
 from nicegui import ui
 from src.twilio.call_controller import router as twilio_router
 from src.twilio.websocket_receiver import handle_relay_websocket
-from src.ui import call_log, dashboard, live_calls 
+from src.ui import call_log, dashboard, live_calls, appointments
 
 logging.basicConfig(
     level=logging.INFO,
@@ -29,4 +29,5 @@ async def websocket_endpoint(ws: WebSocket):
 
 dashboard.create()
 live_calls.create()
+appointments.create()
 ui.run_with(app, mount_path="/pages", storage_secret="scheduling-agent")

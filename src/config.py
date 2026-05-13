@@ -2,7 +2,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class AppConfig(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     domain: str  # bare domain, e.g. 9b81-136-226-166-181.ngrok-free.app
 
@@ -14,8 +14,12 @@ class AppConfig(BaseSettings):
     openai_api_key: str
     openai_model: str = "gpt-4o"
 
-    airtable_api_key: str = ""
-    airtable_base_id: str = ""
+    db: str = ""
+    db_path: str = "scheduling.db"
+
+    @property
+    def resolved_db_path(self) -> str:
+        return f"{self.db}.db" if self.db else self.db_path
 
     tts_voice: str = "en-US-Chirp3-HD-Aoede"
     tts_language: str = "en-US"

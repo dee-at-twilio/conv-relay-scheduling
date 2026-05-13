@@ -28,3 +28,4 @@ def create() -> None:
 
         with ui.row().classes("gap-4"):
             ui.link("Live Calls", "/calls").classes("text-blue-600 underline text-sm")
+            ui.link("Appointments", "/appointments").classes("text-blue-600 underline text-sm")
