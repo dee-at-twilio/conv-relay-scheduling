@@ -2,8 +2,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from src.airtable.appointment_repository import appointment_repo
-from src.airtable.patient_repository import patient_repo
+from src.db.appointment_repository import appointment_repo
+from src.db.patient_repository import patient_repo
 from src.models.session import SessionState
 from src.models.tools import ToolResult
 from src.tools.base import BaseTool

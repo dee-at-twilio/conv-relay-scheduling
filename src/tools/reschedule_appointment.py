@@ -3,7 +3,7 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from src.airtable.appointment_repository import appointment_repo
+from src.db.appointment_repository import appointment_repo
 from src.models.session import SessionState
 from src.models.tools import ToolResult
 from src.tools.base import BaseTool
@@ -24,11 +24,11 @@ class RescheduleAppointmentTool(BaseTool):
         "properties": {
             "appointment_id": {
                 "type": "string",
-                "description": "The Airtable record ID of the existing booked appointment to cancel.",
+                "description": "The record ID of the existing booked appointment to cancel.",
             },
             "provider_id": {
                 "type": "string",
-                "description": "The Airtable record ID of the provider.",
+                "description": "The record ID of the provider.",
             },
             "start": {
                 "type": "string",

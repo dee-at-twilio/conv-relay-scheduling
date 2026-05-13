@@ -15,7 +15,7 @@ def create() -> None:
     @ui.page("/calls")
     def live_calls():
         ui.label("Live Calls").classes("text-2xl font-bold mb-4")
-        ui.link("← Dashboard", "/pages/").classes("text-blue-600 underline text-sm mb-4 block")
+        ui.link("← Dashboard", "/").classes("text-blue-600 underline text-sm mb-4 block")
 
         page_container = ui.column().classes("w-full")
         no_calls_label = ui.label("No active calls.").classes("text-gray-400")

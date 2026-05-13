@@ -3,15 +3,12 @@ import logging
 from datetime import date, datetime, timedelta
 from typing import Any
 
-from src.airtable.appointment_repository import appointment_repo
-from src.airtable.client import airtable_client
+from src.db.appointment_repository import appointment_repo
 from src.models.session import SessionState
 from src.models.tools import ToolResult
 from src.tools.base import BaseTool
 
 logger = logging.getLogger(__name__)
-
-_PROVIDERS_TABLE = "Providers"
 
 # Business hours and slot duration — adjust as needed for the demo
 _SLOT_DURATION_MINS = 30
@@ -88,19 +85,15 @@ class CheckAvailabilityTool(BaseTool):
         if not words:
             return ToolResult(tool_name=self.name, success=False, error=f"No provider found matching '{provider_name}'. Please ask the patient for more details.")
 
-        if len(words) == 1:
-            formula = f"SEARCH('{words[0]}',LOWER({{Name}}))"
-        else:
-            parts = ",".join(f"SEARCH('{w}',LOWER({{Name}}))" for w in words)
-            formula = f"AND({parts})"
-        records = airtable_client.get_all(_PROVIDERS_TABLE, formula)
+        all_providers = appointment_repo.get_all_providers()
+        matches = [p for p in all_providers if all(w in p["name"].lower() for w in words)]
 
-        if not records:
+        if not matches:
             return ToolResult(tool_name=self.name, success=False, error=f"No provider found matching '{provider_name}'. Please ask the patient for more details.")
 
         # Multiple matches — let the LLM confirm with the patient before proceeding
-        if len(records) > 1:
-            candidates = [r["fields"].get("Name", "") for r in records]
+        if len(matches) > 1:
+            candidates = [p["name"] for p in matches]
             logger.info("tool=%s multiple providers matched: %s", self.name, candidates)
             return ToolResult(
                 tool_name=self.name,
@@ -108,8 +101,8 @@ class CheckAvailabilityTool(BaseTool):
                 error=f"Multiple providers match '{provider_name}': {', '.join(candidates)}. Ask the patient which one they mean.",
             )
 
-        provider_id = records[0]["id"]
-        provider_name_resolved = records[0]["fields"].get("Name", provider_name)
+        provider_id = matches[0]["id"]
+        provider_name_resolved = matches[0]["name"]
         logger.info("tool=%s resolved provider='%s' id=%s from=%s to=%s", self.name, provider_name_resolved, provider_id, from_date, to_date)
 
         # Fetch existing booked appointments for this provider in the range

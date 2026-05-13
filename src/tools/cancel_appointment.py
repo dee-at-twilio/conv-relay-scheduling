@@ -2,7 +2,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from src.airtable.appointment_repository import appointment_repo
+from src.db.appointment_repository import appointment_repo
 from src.models.session import SessionState
 from src.models.tools import ToolResult
 from src.tools.base import BaseTool
@@ -19,7 +19,7 @@ class CancelAppointmentTool(BaseTool):
         "properties": {
             "appointment_id": {
                 "type": "string",
-                "description": "The Airtable record ID of the booked appointment to cancel.",
+                "description": "The record ID of the booked appointment to cancel.",
             },
         },
         "required": ["appointment_id"],
