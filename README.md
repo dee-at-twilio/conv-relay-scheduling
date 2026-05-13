@@ -1,4 +1,4 @@
-# Scheduling agent with Conversation Relay and Airtable
+# Scheduling agent with Conversation Relay
 A patient appointment scheduling voice agent using Twilio Programmable Voice and Conversation Relay in Python/FastAPI.
 
 ![Appointments](docs/appointments.png)
