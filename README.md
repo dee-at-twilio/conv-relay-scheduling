@@ -9,7 +9,7 @@ Before getting started, here's what you'll need:
 - A Twilio account.
 - A Twilio [phone number](https://www.twilio.com/docs/phone-numbers). Twilio free trial gives you a small preloaded balance. Purchase a number as detailed [here](https://www.twilio.com/docs/usage/tutorials/how-to-use-your-free-trial-account#get-your-first-phone-number). 
 - An API key for the LLM powering your scheduling agent. Eg. OpenAI
-- [Airtable](https://airtable.com/) as the scheduling backend for the demo featured in this blog.
+- SQLite as the scheduling backend for the demo featured in this blog.
 - Python 3.13 or later installed
 - A free [ngrok](https://ngrok.com/download) account
 
@@ -43,7 +43,7 @@ Once created, open .env in your code editor. You are required to set the followi
 | `TWILIO_AUTH_TOKEN` | Your Twilio Auth Token, which is also found in the Twilio Console. |
 | `TWILIO_PHONE_NUMBER` | Twilio phone number to call into. Also used to send sms |
 | `OPENAI_API_KEY` | Your OpenAI API Key |
-| `AIRTABLE_API_KEY` `AIRTABLE_BASE_ID`| Airtable configuration used for maintaining patient appointments |
+| `db`| DB anme |
 | `TWILIO_FLEX_WORKFLOW_SID` | Optional. The Taskrouter Workflow SID, which is automatically provisioned with your Flex account. Used to enqueue inbound call with Flex agents. To find this, in the Twilio Console go to TaskRouter > Workspaces > Flex Task Assignment > Workflows |
 | `TTS_VOICE` `TTS_LANGUAGE` | Optional. The voice and language chosen for the agent. Check docs for [available options](https://www.twilio.com/docs/voice/twiml/say/text-speech#available-voices-and-languages)  |
 | `TRANSCRIPTION_LANGUAGE` | Optional. The language to use for STT |
@@ -91,10 +91,10 @@ connect.conversation_relay(
 When Twilio receives the above TwiML, it initiates a WebSocket connection to your agent server. It sends a [setup message](https://www.twilio.com/docs/voice/conversationrelay/websocket-messages#setup-message) immediately after. Once connected, Conversation Relay begins streaming patient audio, transcribing it, and sending the text utterances to your agent server as JSON payloads via the WebSocket. Check the [documentation](https://www.twilio.com/docs/voice/conversationrelay/websocket-messages#getting-messages-from-twilio) for other messages expected from the Conversation Relay service.
 
 ## LLM scheduling agent
-The LLM agent is the core logic engine. It receives patient utterances from Conversation Relay, determines the patient's intent, interacts with your scheduling tools (Airtable), and responds with an action (speak, invoke tool, or escalate to human). It also maintains conversation history for the duration of the call. When a message arrives from Conversation Relay, the agent -
+The LLM agent is the core logic engine. It receives patient utterances from Conversation Relay, determines the patient's intent, interacts with your scheduling db (SQLite), and responds with an action (speak, invoke tool, or escalate to human). It also maintains conversation history for the duration of the call. When a message arrives from Conversation Relay, the agent -
 1. Extracts the patient's transcribed utterance and appends it to conversation history
 2. Streams the LLM response token-by-token back to Conversation Relay so speech synthesis starts immediately
-3. If the LLM requests a tool call, executes it server-side (Airtable read/write), feeds the result back to the LLM, and repeats until the LLM produces a final spoken reply — all within a single patient turn
+3. If the LLM requests a tool call, executes it server-side, feeds the result back to the LLM, and repeats until the LLM produces a final spoken reply — all within a single patient turn
 4. Sends the final text tokens to Conversation Relay with `last=true` to signal end of turn
 5. If the patient interrupts mid-response, stops streaming and discards buffered tokens
 
@@ -120,18 +120,11 @@ The following tools have been made available to the agent:
 ## Agent WebSocket Messages to Twilio
 The agent communicates with Conversation Relay using a standardized JSON payload over the WebSocket. The types of messages the agent can send to Twilio are documented here.
 
-## Airtable integration
+## SQLite tables
 Create the following 3 tables (exact names):
 - Patients -  Name, Phone, Email
 - Providers - Name, Specialty
 - Appointments - Provider (link→Providers), Patient (link→Patients), Start Time, End Time, Status (single select), Notes
-
-Rather than calling the SDK directly throughout the app, we wrap it in a [single](https://github.com/dee-at-twilio/conv-relay-scheduling/blob/main/src/airtable/client.py) `AirtableClient` class that handles two concerns: **rate limiting** and **logging**. 
-
-The client exposes three operations. All three follow the same pattern - throttle, log, call, log result, and re-raise exceptions so callers can decide how to handle failures.
-- `get_all` 
-- `create_record`
-- `update_record` 
 
 For patient calls to work right, ensure you have entered provider names in the Provider table.
 
