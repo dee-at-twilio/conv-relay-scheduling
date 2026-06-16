@@ -66,6 +66,9 @@ async def action_callback(request: Request):
             url=config.ws_url,
             voice=config.tts_voice,
             language=config.tts_language,
+            ttsProvider=config.tts_provider,
+            transcriptionProvider=config.transcription_provider,
+            stt_speechModel=config.speechModel,
             transcription_language=config.transcription_language
         )
         response.append(connect)

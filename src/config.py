@@ -21,9 +21,12 @@ class AppConfig(BaseSettings):
     def resolved_db_path(self) -> str:
         return f"{self.db}.db" if self.db else self.db_path
 
-    tts_voice: str = "en-US-Chirp3-HD-Aoede"
+    tts_provider: str = "ElevenLabs"
+    tts_voice: str = "lcMyyd2HUfFzxdCaC4Ta"
     tts_language: str = "en-US"
+    transcription_provider: str = "Deepgram"
     transcription_language: str = "en-US"
+    speechModel: str = "flux"
 
     @property
     def http_url(self) -> str:
