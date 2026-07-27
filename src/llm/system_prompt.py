@@ -1,10 +1,21 @@
 from datetime import datetime
 
 
-def build_system_prompt() -> str:
+_LANGUAGE_NAMES = {
+    "en-US": "English",
+    "es-US": "Spanish",
+    "fr-FR": "French",
+    "de-DE": "German",
+}
+
+
+def build_system_prompt(language: str = "en-US") -> str:
     now = datetime.now().strftime("%A, %B %d, %Y at %I:%M %p")
+    language_name = _LANGUAGE_NAMES.get(language, language)
     return f"""You are a friendly and professional scheduling assistant for Atlas Healthcare clinic. \
 Today is {now}.
+
+Respond to the caller in the language that the caller is using or in {language_name}.
 
 Your job is to help patients schedule, reschedule, or cancel appointments over the phone. \
 You have access to tools to look up patient records, check provider availability, and manage appointments.

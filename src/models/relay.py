@@ -11,6 +11,7 @@ class SetupMessage(BaseModel):
     from_: str | None = None  # populated via alias below
     to: str | None = None
     sessionId: str | None = None
+    customParameters: dict[str, Any] | None = None
 
     model_config = {"populate_by_name": True}
 

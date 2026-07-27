@@ -24,7 +24,7 @@ To get started, you'll need a Twilio phone number capable of handling incoming v
     ```
 3. Install dependencies
     ```sh
-    npm install -r requirements.txt
+    pip install -r requirements.txt
     ```
 4. Copy the sample environment file and configure the environment variables
     ```
@@ -121,10 +121,10 @@ The following tools have been made available to the agent:
 The agent communicates with Conversation Relay using a standardized JSON payload over the WebSocket. The types of messages the agent can send to Twilio are documented here.
 
 ## SQLite tables
-Create the following 3 tables (exact names):
+The following 3 tables (exact names) [are created](https://github.com/dee-at-twilio/conv-relay-scheduling/blob/main/src/db/database.py) if they don’t exist:
 - Patients -  Name, Phone, Email
 - Providers - Name, Specialty
-- Appointments - Provider (link→Providers), Patient (link→Patients), Start Time, End Time, Status (single select), Notes
+- Appointments - Provider (link→Providers), Patient (link→Patients), Start Time, End Time, Status, Notes
 
 For patient calls to work right, ensure you have entered provider names in the Provider table.
 
