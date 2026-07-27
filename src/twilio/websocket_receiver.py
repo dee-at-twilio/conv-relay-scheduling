@@ -32,6 +32,8 @@ async def handle_relay_websocket(ws: WebSocket) -> None:
 
             msg = parse_inbound(data)
 
+            logger.debug("parsed relay message: %s", msg)
+
             match msg:
                 case SetupMessage():
                     call_sid = msg.callSid
@@ -42,6 +44,12 @@ async def handle_relay_websocket(ws: WebSocket) -> None:
                     )
                     session_manager.register_sender(call_sid, sender)
                     event_bus.publish(SessionEvent(call_sid=call_sid, event="started", from_number=msg.from_ or ""))
+
+                    lang = (msg.customParameters or {}).get("language")
+                    if lang and lang != state.language:
+                        state.language = lang
+                        await sender.switch_language(lang, lang)
+                        logger.info("setup: switched language to %s callSid=%s", lang, call_sid)
 
                 case PromptMessage():
                     if not call_sid:

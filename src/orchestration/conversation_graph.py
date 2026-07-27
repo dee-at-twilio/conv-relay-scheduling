@@ -19,7 +19,7 @@ _SENTENCE_ENDS = {".", "!", "?"}
 
 
 def _build_messages(state: SessionState) -> list[dict]:
-    messages = [{"role": "system", "content": build_system_prompt()}]
+    messages = [{"role": "system", "content": build_system_prompt(state.language)}]
     for m in state.messages:
         if m.role == "assistant" and m.content and m.content.startswith('{"tool_calls":'):
             payload = json.loads(m.content)
