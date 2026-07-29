@@ -6,6 +6,7 @@ from nicegui import ui
 from src.twilio.call_controller import router as twilio_router
 from src.twilio.websocket_receiver import handle_relay_websocket
 from src.ui import call_log, dashboard, live_calls, appointments
+from src.webhook_router import router as intelligence_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -22,9 +23,15 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Scheduling Agent", lifespan=lifespan)
 app.include_router(twilio_router)
+app.include_router(intelligence_router)
 
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
+    await handle_relay_websocket(ws)
+
+
+@app.websocket("/ws-bridge")
+async def bridge_ws(ws: WebSocket):
     await handle_relay_websocket(ws)
 
 dashboard.create()

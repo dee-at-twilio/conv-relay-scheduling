@@ -31,6 +31,15 @@ CREATE TABLE IF NOT EXISTS appointments (
     status      TEXT NOT NULL DEFAULT 'available',
     notes       TEXT
 );
+
+CREATE TABLE IF NOT EXISTS intelligence_webhook_log (
+    operator_result_id TEXT PRIMARY KEY,
+    conversation_id    TEXT NOT NULL,
+    operator_id        TEXT NOT NULL,
+    received_at        TEXT NOT NULL,
+    memory_writes_json TEXT NOT NULL,
+    status             TEXT NOT NULL
+);
 """
 
 

@@ -21,6 +21,8 @@ class AppConfig(BaseSettings):
     def resolved_db_path(self) -> str:
         return f"{self.db}.db" if self.db else self.db_path
 
+    memory_store_sid: str = ""  # optional — payload's resolvedContext.memory.memoryStoreId wins if set
+
     tts_provider: str = "ElevenLabs"
     tts_voice: str = "lcMyyd2HUfFzxdCaC4Ta"
     tts_language: str = "en-US"
