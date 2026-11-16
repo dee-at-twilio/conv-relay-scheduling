@@ -107,5 +107,12 @@ async def process_turn(
                 tool_name=tc.name,
             ))
 
+        if state.pending_language_switch:
+            new_lang = state.pending_language_switch
+            state.pending_language_switch = None
+            logger.info("switching language callSid=%s %s→%s", state.call_sid, state.language, new_lang)
+            await sender.switch_language(new_lang, new_lang)
+            state.language = new_lang
+
     logger.warning("hit max tool rounds callSid=%s", state.call_sid)
     await sender.speak("I'm sorry, I wasn't able to complete that. Let me transfer you to someone who can help.", last=True)

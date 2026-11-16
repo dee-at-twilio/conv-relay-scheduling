@@ -7,6 +7,7 @@ from src.tools.register_patient import RegisterPatientTool
 from src.tools.reschedule_appointment import RescheduleAppointmentTool
 from src.tools.schedule_appointment import ScheduleAppointmentTool
 from src.tools.send_sms import SendSmsTool
+from src.tools.switch_language import SwitchLanguageTool
 
 tool_registry = ToolRegistry()
 tool_registry.register(PatientLookupTool())
@@ -17,3 +18,4 @@ tool_registry.register(ScheduleAppointmentTool())
 tool_registry.register(RescheduleAppointmentTool())
 tool_registry.register(CancelAppointmentTool())
 tool_registry.register(SendSmsTool())
+tool_registry.register(SwitchLanguageTool())

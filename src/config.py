@@ -10,6 +10,7 @@ class AppConfig(BaseSettings):
     twilio_auth_token: str
     twilio_phone_number: str
     twilio_flex_workflow_sid: str = ""
+    forward_to_number: str = ""  # destination for /inbound-forward webhook
 
     openai_api_key: str
     openai_model: str = "gpt-4o"

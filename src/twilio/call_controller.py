@@ -32,13 +32,46 @@ async def incoming_call():
     connect = Connect(action=config.http_url + "/action")
     connect.conversation_relay(
         url=config.ws_url,
-        welcome_greeting="Hello, I'm your scheduling assistant. How can I help you today?",
+        welcome_greeting="Hello. How can I help you today?",
         voice=config.tts_voice,
         language=config.tts_language,
         transcription_language=config.transcription_language
     )
     response.append(connect)
     logger.info("incoming-call → ConversationRelay ws=%s", config.ws_url)
+    return Response(content=str(response), media_type="application/xml")
+
+
+@router.post("/inbound-forward")
+async def inbound_forward(request: Request):
+    """
+    Webhook for a Twilio number configured in the console.
+    Bridges the inbound caller to config.forward_to_number.
+    """
+    form = await request.form()
+    logger.info("inbound-forward from=%s to=%s → %s",
+                form.get("From"), form.get("To"), config.forward_to_number)
+    response = VoiceResponse()
+    if config.forward_to_number:
+        response.dial(config.forward_to_number)
+    else:
+        logger.warning("inbound-forward: FORWARD_TO_NUMBER unset — hanging up")
+        response.hangup()
+    return Response(content=str(response), media_type="application/xml")
+
+
+@router.post("/simple-call")
+async def simple_call(request: Request):
+    """Return TwiML that bridges the caller to a second party read from `to` param."""
+    form = await request.form()
+    to = request.query_params.get("to") or form.get("to")
+    logger.info("simple-call received to=%s", to)
+    response = VoiceResponse()
+    if to:
+        response.dial(to)
+    else:
+        logger.warning("simple-call missing `to` param — hanging up")
+        response.hangup()
     return Response(content=str(response), media_type="application/xml")
 
 
