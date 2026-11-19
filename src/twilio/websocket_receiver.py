@@ -3,17 +3,21 @@ import asyncio
 import json
 import logging
 from fastapi import WebSocket, WebSocketDisconnect
+from opentelemetry import trace
 
+from src import bluejay
 from src.events.event_bus import event_bus
 from src.events.event_types import SessionEvent, TranscriptEvent
 from src.llm.translate import translate
 from src.models.relay import parse_inbound, SetupMessage, PromptMessage, DTMFMessage, InterruptMessage, ErrorMessage
+from src.models.session import SessionState
 from src.orchestration.conversation_graph import process_turn
 from src.session.session_manager import session_manager
 from src.twilio.bridge_manager import BridgeParticipant, bridge_manager
 from src.twilio.relay_sender import ConversationRelaySender
 
 logger = logging.getLogger(__name__)
+tracer = trace.get_tracer(__name__)
 
 
 async def handle_relay_websocket(ws: WebSocket) -> None:
@@ -42,7 +46,9 @@ async def handle_relay_websocket(ws: WebSocket) -> None:
     if params.get("session_id") and params.get("role"):
         await _run_bridge_loop(ws, sender, setup)
     else:
-        await _run_agent_loop(ws, sender, setup)
+        with tracer.start_as_current_span("call", attributes={"call.sid": setup.callSid}) as call_span:
+            await _run_agent_loop(ws, sender, setup)
+        await bluejay.link_simulation(call_span, setup.callSid)
 
 
 async def _run_agent_loop(ws: WebSocket, sender: ConversationRelaySender, setup: SetupMessage) -> None:
@@ -93,8 +99,25 @@ async def _run_agent_loop(ws: WebSocket, sender: ConversationRelaySender, setup:
     except WebSocketDisconnect:
         logger.info("relay WS disconnected callSid=%s", call_sid)
     finally:
+        bluejay.set_metadata(call_sid, _call_metadata(state))
         session_manager.end_session(call_sid)
         event_bus.publish(SessionEvent(call_sid=call_sid, event="ended"))
+
+
+_OUTCOMES = {"schedule_appointment": "booked", "reschedule_appointment": "rescheduled", "cancel_appointment": "cancelled"}
+
+
+def _call_metadata(state: SessionState) -> dict:
+    """Summarize the call for Bluejay metric prompts. Leaves out names and phone numbers (PII)."""
+    results = [json.loads(m.content) for m in state.messages if m.role == "tool"]
+    succeeded = {r["tool_name"] for r in results if r["success"]}
+    return {
+        "outcome": ", ".join(o for tool, o in _OUTCOMES.items() if tool in succeeded) or "no_action",
+        "patient_identified": state.patient_id is not None,
+        "final_language": state.language,
+        "turns": sum(m.role == "user" for m in state.messages),
+        "tool_failures": sum(not r["success"] for r in results),
+    }
 
 
 async def _run_bridge_loop(ws: WebSocket, sender: ConversationRelaySender, setup: SetupMessage) -> None:

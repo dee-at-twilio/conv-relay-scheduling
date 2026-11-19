@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trace your ConversationRelay agent with Bluejay</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* Paper (light, default) and Ink (warm dark) — same palette as the SAA workshop deck. */
+  :root {
+    --bg: #F5EFE3;
+    --bg-alt: #EFE7D6;
+    --line: rgba(43,36,30,0.16);
+    --terracotta: #B5502E;  --terracotta-soft: rgba(181,80,46,0.12);
+    --dusty-blue: #4E7089;  --dusty-blue-soft: rgba(78,112,137,0.12);
+    --ochre: #A87A21;       --ochre-soft: rgba(168,122,33,0.13);
+    --violet: #7A6A9E;      --violet-soft: rgba(122,106,158,0.12);
+    --link-border: rgba(181,80,46,0.35);
+    --text: #2B241E;
+    --text-dim: #6C5F51;
+    --text-faint: #A89A87;
+    --font-h: 'Fraunces', Georgia, serif;
+    --font-b: 'IBM Plex Sans', sans-serif;
+    --font-m: 'IBM Plex Mono', monospace;
+  }
+  html[data-theme="dark"] {
+    --bg: #1A1611;
+    --bg-alt: #221C16;
+    --line: rgba(245,239,227,0.14);
+    --terracotta: #E07B57;  --terracotta-soft: rgba(224,123,87,0.14);
+    --dusty-blue: #8CB3CF;  --dusty-blue-soft: rgba(140,179,207,0.14);
+    --ochre: #D9A647;       --ochre-soft: rgba(217,166,71,0.15);
+    --violet: #B5A4D8;      --violet-soft: rgba(181,164,216,0.14);
+    --link-border: rgba(224,123,87,0.4);
+    --text: #F0E8D8;
+    --text-dim: #B8AC98;
+    --text-faint: #7A6F5E;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; scroll-padding-top: 80px; }
+  body {
+    background: var(--bg); color: var(--text); font-family: var(--font-b);
+    line-height: 1.65; -webkit-font-smoothing: antialiased;
+  }
+  body, .toolbar, .side-menu, .theme-toggle, .side-menu-toggle {
+    transition: background 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+  }
+
+  /* ---------- Toolbar ---------- */
+  .toolbar {
+    position: fixed; top: 0; left: 0; right: 0; height: 60px;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 30px 0 84px; z-index: 20;
+    background: linear-gradient(to bottom, var(--bg) 60%, transparent);
+    transition: left 0.3s ease;
+  }
+  .toolbar .brand { font-family: var(--font-m); font-size: 12.5px; color: var(--text-faint); }
+  .theme-toggle, .side-menu-toggle {
+    width: 38px; height: 38px; border-radius: 50%;
+    border: 1.5px solid var(--line); background: var(--bg-alt); color: var(--text);
+    font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  }
+  .theme-toggle:hover, .side-menu-toggle:hover { border-color: var(--terracotta); }
+  .theme-toggle .icon-sun { display: none; }
+  html[data-theme="dark"] .theme-toggle .icon-sun { display: block; }
+  html[data-theme="dark"] .theme-toggle .icon-moon { display: none; }
+
+  /* ---------- Contents menu (left) ---------- */
+  .side-menu-toggle { position: fixed; top: 11px; left: 20px; z-index: 31; }
+  .side-menu-backdrop {
+    position: fixed; inset: 0; background: rgba(43,36,30,0.18);
+    z-index: 24; opacity: 0; pointer-events: none; transition: opacity 0.25s ease;
+  }
+  .side-menu-backdrop.open { opacity: 1; pointer-events: auto; }
+  .side-menu {
+    position: fixed; top: 0; left: 0; bottom: 0; width: 250px;
+    background: var(--bg-alt); border-right: 1px dotted var(--line);
+    z-index: 25; padding: 78px 16px 20px; overflow-y: auto;
+    transform: translateX(-100%); transition: transform 0.3s ease;
+  }
+  .side-menu.open { transform: translateX(0); }
+  .side-menu-group {
+    font-family: var(--font-m); font-size: 10.5px; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--text-faint); padding: 4px 10px 8px;
+  }
+  .side-menu-item {
+    display: block; text-decoration: none;
+    font-family: var(--font-b); font-size: 14px; color: var(--text-dim);
+    padding: 9px 10px; border-radius: 6px; margin-bottom: 2px;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .side-menu-item .n { font-family: var(--font-m); font-size: 11px; color: var(--text-faint); margin-right: 8px; }
+  .side-menu-item:hover { background: var(--bg); color: var(--text); }
+  .side-menu-item.active { color: var(--terracotta); font-weight: 600; background: var(--terracotta-soft); }
+  .side-menu-item.active .n { color: var(--terracotta); }
+
+  /* ---------- Article ---------- */
+  .page { transition: margin-left 0.3s ease; }
+  article { max-width: 760px; margin: 0 auto; padding: 120px 24px 120px; }
+  .post-section { padding-top: 56px; margin-top: 56px; border-top: 1px dotted var(--line); }
+  .post-hero { padding-bottom: 8px; }
+
+  .eyebrow {
+    display: inline-block; font-family: var(--font-m); font-size: 12.5px; font-weight: 500;
+    color: var(--terracotta); border: 1.5px solid var(--terracotta);
+    padding: 4px 12px; border-radius: 4px; transform: rotate(-1.5deg);
+    margin-bottom: 22px;
+  }
+  h1 { font-family: var(--font-h); font-size: 48px; font-weight: 600; line-height: 1.12; letter-spacing: -0.01em; margin-bottom: 20px; }
+  .lede { color: var(--text-dim); font-size: 18px; max-width: 620px; margin-bottom: 40px; }
+  .meta-row { display: flex; gap: 40px; flex-wrap: wrap; padding-top: 26px; border-top: 1px dotted var(--line); }
+  .meta-item .k { font-family: var(--font-m); font-size: 11px; letter-spacing: 0.03em; color: var(--text-faint); margin-bottom: 6px; text-transform: uppercase; }
+  .meta-item .v { font-size: 15px; font-weight: 600; }
+
+  h2 { font-family: var(--font-h); font-size: 34px; font-weight: 600; line-height: 1.2; margin-bottom: 22px; }
+  h3 { font-family: var(--font-h); font-size: 22px; font-weight: 600; margin: 34px 0 12px; }
+  article p { color: var(--text-dim); font-size: 16px; margin-bottom: 16px; max-width: 680px; }
+  article p strong, article li strong { color: var(--text); font-weight: 600; }
+  article ul, article ol.prose { color: var(--text-dim); font-size: 16px; margin: 0 0 18px 0; padding-left: 22px; max-width: 680px; }
+  article ul li, article ol.prose li { margin-bottom: 8px; padding-left: 4px; }
+  article a { color: var(--terracotta); text-decoration: none; border-bottom: 1px solid var(--link-border); }
+  article a:hover { border-bottom-color: var(--terracotta); }
+
+  p code, li code, td code, .diagram-caption code, .callout code, .step-desc code {
+    font-family: var(--font-m); font-size: 0.84em; color: var(--terracotta);
+    background: var(--terracotta-soft); padding: 1px 6px; border-radius: 3px;
+    white-space: nowrap;
+  }
+
+  /* Pull quote / callout */
+  .callout { border-left: 2px solid var(--terracotta); padding: 4px 0 4px 22px; margin: 28px 0; }
+  .callout .c-label { font-family: var(--font-m); font-size: 11.5px; color: var(--terracotta); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .callout p { font-family: var(--font-h); font-size: 19px; color: var(--text); margin-bottom: 0; }
+
+  /* Three-part design list */
+  .prereq-list { display: flex; flex-direction: column; margin: 8px 0 22px; }
+  .prereq-item { padding: 16px 0 16px 22px; border-bottom: 1px dotted var(--line); position: relative; }
+  .prereq-item:last-child { border-bottom: none; }
+  .prereq-item::before { content: "✦"; position: absolute; left: 0; top: 16px; color: var(--terracotta); font-size: 11px; }
+  .p-title { font-weight: 600; font-size: 15.5px; margin-bottom: 4px; }
+  .p-desc { color: var(--text-dim); font-size: 15px; }
+
+  /* Code */
+  .code-panel {
+    background: var(--bg-alt); border: 1px dotted var(--line); border-radius: 6px;
+    margin: 14px 0 22px; overflow: hidden;
+  }
+  .code-label {
+    font-family: var(--font-m); font-size: 11px; color: var(--text-faint);
+    padding: 7px 14px; border-bottom: 1px dotted var(--line);
+  }
+  .code-panel pre { margin: 0; padding: 14px 16px; overflow-x: auto; }
+  .code-panel code {
+    font-family: var(--font-m); font-size: 12.5px; line-height: 1.65; color: var(--text);
+    white-space: pre;
+  }
+  .code-panel .cm { color: var(--text-faint); }
+  .code-panel .add { color: var(--terracotta); font-weight: 500; }
+
+  /* Span tree */
+  .trace-tree { padding: 16px 18px; font-family: var(--font-m); font-size: 12.5px; line-height: 1.9; overflow-x: auto; }
+  .trace-tree .row { display: flex; gap: 18px; white-space: pre; }
+  .trace-tree .name { min-width: 300px; color: var(--text); }
+  .trace-tree .attrs { color: var(--text-faint); }
+  .trace-tree .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; vertical-align: 1px; }
+  .dot.root { background: var(--terracotta); }
+  .dot.turn { background: var(--dusty-blue); }
+  .dot.tool { background: var(--ochre); }
+  .dot.mine { background: var(--violet); }
+  .trace-legend { display: flex; gap: 18px; flex-wrap: wrap; padding: 8px 14px; border-top: 1px dotted var(--line); font-family: var(--font-m); font-size: 11px; color: var(--text-faint); }
+
+  /* Tables */
+  .table-wrap { overflow-x: auto; margin: 10px 0 24px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+  th { font-family: var(--font-m); font-size: 11px; letter-spacing: 0.03em; text-transform: uppercase; color: var(--text-faint); font-weight: 500; text-align: left; padding: 8px 12px 8px 0; border-bottom: 1px dotted var(--line); }
+  td { color: var(--text-dim); padding: 11px 12px 11px 0; border-bottom: 1px dotted var(--line); vertical-align: top; }
+  td:first-child { white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+
+  /* Numbered setup steps */
+  .impl-steps { display: flex; flex-direction: column; margin: 6px 0 8px; }
+  .impl-step { padding: 18px 0 18px 34px; border-bottom: 1px dotted var(--line); position: relative; }
+  .impl-step:last-child { border-bottom: none; }
+  .impl-step .step-num { position: absolute; left: 0; top: 19px; font-family: var(--font-m); font-size: 12px; color: var(--terracotta); width: 22px; }
+  .step-title { font-weight: 600; font-size: 16px; margin-bottom: 4px; }
+  .step-desc { color: var(--text-dim); font-size: 15px; max-width: 640px; }
+  .impl-step .code-panel { margin-bottom: 4px; }
+
+  /* Diagrams and screenshots */
+  .diagram-panel {
+    background: var(--bg-alt); border: 1px dotted var(--line); border-radius: 6px;
+    margin: 18px 0 26px; overflow-x: auto;
+  }
+  .diagram-label {
+    font-family: var(--font-m); font-size: 10.5px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--text-faint); margin-bottom: 12px;
+  }
+  .diagram-caption { color: var(--text-dim); font-size: 14px; margin: 14px 0 0; text-align: left; }
+  .screenshot-panel {
+    background: var(--bg-alt); border: 1px dotted var(--line); border-radius: 6px;
+    margin: 14px 0 4px; overflow: hidden;
+  }
+  .screenshot-panel img { display: block; width: 100%; height: auto; }
+  .screenshot-slot {
+    min-height: 220px; display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-m); font-size: 12px; color: var(--text-faint);
+    border-bottom: 1px dashed var(--line);
+  }
+  .screenshot-caption {
+    font-family: var(--font-m); font-size: 11px; color: var(--text-faint); padding: 7px 14px;
+  }
+
+  .tag-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+  .tag { font-family: var(--font-m); font-size: 11px; color: var(--text-dim); border: 1px solid var(--line); padding: 4px 10px; border-radius: 999px; }
+
+  footer.sources { font-size: 14px; }
+  footer.sources ul { font-size: 14px; }
+
+  @media (min-width: 900px) {
+    .side-menu-backdrop { display: none; }
+    body.menu-open .toolbar { left: 250px; }
+    body.menu-open .page { margin-left: 250px; }
+  }
+  @media (max-width: 640px) {
+    h1 { font-size: 34px; }
+    h2 { font-size: 27px; }
+    article { padding: 96px 18px 96px; }
+    .trace-tree .name { min-width: 240px; }
+  }
+  @media print {
+    .toolbar, .side-menu, .side-menu-toggle, .side-menu-backdrop { display: none; }
+    .page { margin-left: 0 !important; }
+    article { padding-top: 24px; }
+  }
+
+  /* Side note and checkpoint boxes */
+  .aside {
+    background: var(--bg-alt); border: 1px dotted var(--line); border-left: 2px solid var(--dusty-blue);
+    border-radius: 6px; padding: 16px 20px; margin: 26px 0 8px;
+  }
+  .aside-label, .checkpoint-label {
+    font-family: var(--font-m); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 6px;
+  }
+  .aside-label { color: var(--dusty-blue); }
+  .aside p { font-size: 15px; margin-bottom: 0; }
+  .checkpoint { border-left: 2px solid var(--ochre); background: var(--ochre-soft); border-radius: 0 6px 6px 0; padding: 12px 18px; margin: 24px 0 8px; }
+  .checkpoint-label { color: var(--ochre); }
+  .checkpoint p { font-size: 15px; margin-bottom: 0; color: var(--text); }
+  .aside code, .checkpoint code { font-family: var(--font-m); font-size: 0.84em; color: var(--terracotta); background: var(--terracotta-soft); padding: 1px 6px; border-radius: 3px; }
+</style>
+<script>
+  // Pre-paint theme init: saved choice, else OS preference, else Paper.
+  (function () {
+    try {
+      var saved = localStorage.getItem('agenda-theme');
+      var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if ((saved || (prefersDark ? 'dark' : 'light')) === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+    } catch (e) {}
+  })();
+</script>
+</head>
+<body class="menu-open">
+
+<button class="side-menu-toggle" id="menu-toggle" aria-label="Toggle contents">☰</button>
+<div class="side-menu-backdrop" id="menu-backdrop"></div>
+<nav class="side-menu open" id="side-menu">
+  <div class="side-menu-group">Contents</div>
+  <!-- items injected from each section's data-menu -->
+</nav>
+
+<div class="toolbar">
+  <div class="brand">Voice agents · Testing with Bluejay</div>
+  <button class="theme-toggle" id="theme-toggle" aria-label="Toggle light / dark theme" title="Toggle theme">
+    <span class="icon-moon" aria-hidden="true">☾</span>
+    <span class="icon-sun" aria-hidden="true">☀</span>
+  </button>
+</div>
+
+<div class="page">
+<article>
+
+  <!-- ===== Hero ===== -->
+  <header class="post-hero" id="top" data-menu="Introduction">
+    <h1>Trace your ConversationRelay agent with Bluejay</h1>
+    <p class="lede">Bluejay's simulated customers take calls from your agent, and Bluejay scores each conversation. Send your app's OpenTelemetry trace, tool calls and a short call summary with every test call, and each score comes with a record of what your code did.</p>
+    <div class="meta-row">
+      <div class="meta-item"><div class="k">Agent</div><div class="v">ConversationRelay · FastAPI · OpenAI</div></div>
+      <div class="meta-item"><div class="k">Test direction</div><div class="v">Outbound</div></div>
+      <div class="meta-item"><div class="k">Test platform</div><div class="v">Bluejay</div></div>
+      <div class="meta-item"><div class="k">Reading time</div><div class="v">12 min</div></div>
+    </div>
+  </header>
+
+  <!-- ===== 01 ===== -->
+  <section class="post-section" id="why" data-menu="Why test with traces">
+    <div class="eyebrow">01</div>
+    <h2>Why test with traces</h2>
+    <p>Bluejay tests a voice agent with simulated customers, which it calls <strong>Digital Humans</strong>. A <strong>simulation</strong> runs a set of conversations between your agent and Digital Humans, and Bluejay's <strong>metrics</strong> score each one. In an <strong>outbound</strong> test, your agent calls the Digital Human, so the test runs through the same code that places your real outbound calls.</p>
+    <p>From the call itself, Bluejay knows what was said. It doesn't know what your app did: which tools ran, with what arguments, which ones failed, or how long each model request took. As Bluejay's metrics docs put it, "a transcript does not show tool calls." You fill that gap by attaching data to each test call's <strong>simulation result</strong>. This post sends three kinds:</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Data</th><th>What it is</th><th>What Bluejay uses it for</th></tr></thead>
+        <tbody>
+          <tr><td><code>trace_ids</code></td><td>The call's OpenTelemetry trace</td><td>Required by a <strong>Trace metric</strong>. Every metric also sees a summary of the linked trace.</td></tr>
+          <tr><td><code>tool_calls</code></td><td>Each tool the agent called, with its arguments and result</td><td>Required by a <strong>Tool Call metric</strong></td></tr>
+          <tr><td><code>metadata</code></td><td>JSON that describes the whole conversation</td><td>Each key fills a dynamic variable in a metric prompt</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Bluejay also accepts <code>events</code>, moments such as an escalation or a hold. They work the same way and are left out here to keep the code small.</p>
+    <p>A ConversationRelay app you wrote yourself doesn't record any spans until you ask it to. The changes are small: one file, <code>bluejay.py</code>, plus a few lines where your app starts, where it handles the WebSocket and where it runs tools. Your prompts and tools stay as they are.</p>
+    <div class="callout">
+      <div class="c-label">The goal</div>
+      <p>Test the agent you ship, and let every test call carry a record of what your code did.</p>
+    </div>
+    <p>The examples come from a medical scheduling agent: a FastAPI app that serves ConversationRelay's TwiML at <code>/incoming-call</code>, handles the WebSocket at <code>/ws</code>, streams replies from OpenAI, and runs nine tools such as <code>lookup_patient</code> and <code>schedule_appointment</code>.</p>
+  </section>
+
+  <!-- ===== 02 ===== -->
+  <section class="post-section" id="before" data-menu="Before you start">
+    <div class="eyebrow">02</div>
+    <h2>Before you start</h2>
+    <div class="prereq-list">
+      <div class="prereq-item">
+        <div class="p-title">A ConversationRelay app</div>
+        <div class="p-desc">An endpoint that returns <code>&lt;Connect&gt;&lt;ConversationRelay&gt;</code> TwiML, and a WebSocket handler that receives ConversationRelay's messages. Your app places test calls with Twilio's REST API and points them at that same TwiML endpoint.</div>
+      </div>
+      <div class="prereq-item">
+        <div class="p-title">A Bluejay API key</div>
+        <div class="p-desc">Create one by following the "Get an API key" steps in Bluejay's API reference.</div>
+      </div>
+      <div class="prereq-item">
+        <div class="p-title">An Outbound Voice agent in Bluejay</div>
+        <div class="p-desc">Your app dials the Digital Human's phone number, so use the phone number connection described in Bluejay's outbound agents guide. You set its <strong>Outbound Trigger Webhook URL</strong> in section 07.</div>
+      </div>
+      <div class="prereq-item">
+        <div class="p-title">Digital Humans with phone numbers</div>
+        <div class="p-desc">Each Digital Human needs its own number, entered on its <strong>Connection</strong> tab. Your Twilio number must be able to call them.</div>
+      </div>
+      <div class="prereq-item">
+        <div class="p-title">A public HTTPS URL for your app</div>
+        <div class="p-desc">Bluejay POSTs to your app to start each test call, and Twilio fetches your TwiML from it. During development, a tunnel such as ngrok works.</div>
+      </div>
+    </div>
+
+    <h3>Add bluejay.py to your app</h3>
+    <div class="impl-steps">
+      <div class="impl-step">
+        <span class="step-num">01</span>
+        <div class="step-title">Install the tracing packages</div>
+        <div class="step-desc">The OpenTelemetry SDK and OTLP/HTTP exporter send spans to Bluejay. The OpenAI instrumentation adds a span for every model request. The app already uses <code>httpx</code> and <code>twilio</code>.</div>
+        <div class="code-panel">
+          <div class="code-label">requirements.txt</div>
+          <pre><code><span class="add">opentelemetry-sdk
+opentelemetry-exporter-otlp-proto-http
+opentelemetry-instrumentation-openai</span></code></pre>
+        </div>
+      </div>
+      <div class="impl-step">
+        <span class="step-num">02</span>
+        <div class="step-title">Add your Bluejay key</div>
+        <div class="step-desc"><code>BLUEJAY_API_KEY</code> turns everything on. Leave it unset and <code>bluejay.py</code> does nothing. The app reads <code>.env</code> with pydantic-settings, so the key also needs a field on the settings class.</div>
+        <div class="code-panel">
+          <div class="code-label">.env</div>
+          <pre><code>BLUEJAY_API_KEY=your-bluejay-api-key</code></pre>
+        </div>
+        <div class="code-panel">
+          <div class="code-label">src/config.py</div>
+          <pre><code>class AppConfig(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    ...
+    <span class="add">bluejay_api_key: str = ""  # optional — enables tracing to Bluejay</span></code></pre>
+        </div>
+      </div>
+      <div class="impl-step">
+        <span class="step-num">03</span>
+        <div class="step-title">Call bluejay.setup() and mount the trigger route</div>
+        <div class="step-desc">Add <code>src/bluejay.py</code> (sections 03 to 06 walk through it), then two lines in <code>main.py</code>: one mounts the trigger route from section 05, the other starts tracing before the server runs.</div>
+        <div class="code-panel">
+          <div class="code-label">src/main.py</div>
+          <pre><code><span class="add">from src import bluejay</span>
+...
+app = FastAPI(title="Scheduling Agent", lifespan=lifespan)
+app.include_router(twilio_router)
+app.include_router(intelligence_router)
+<span class="add">app.include_router(bluejay.router)</span>
+...
+dashboard.create()
+live_calls.create()
+appointments.create()
+<span class="add">bluejay.setup()</span>
+ui.run_with(app, mount_path="/pages", storage_secret="scheduling-agent")</code></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 03 ===== -->
+  <section class="post-section" id="traces" data-menu="Send traces to Bluejay">
+    <div class="eyebrow">03</div>
+    <h2>Send traces to Bluejay</h2>
+    <p>Bluejay receives spans over OTLP/HTTP at <code>https://otlp.getbluejay.ai/v1/traces</code>, with your API key in the <code>X-API-KEY</code> header. <code>setup()</code> installs a tracer provider that exports there, then turns on the OpenAI instrumentation:</p>
+    <div class="code-panel">
+      <div class="code-label">src/bluejay.py · setup</div>
+      <pre><code>BLUEJAY_TRACES_URL = "https://otlp.getbluejay.ai/v1/traces"
+
+
+def setup() -&gt; None:
+    """Send OpenTelemetry traces to Bluejay. Does nothing unless BLUEJAY_API_KEY is set."""
+    api_key = config.bluejay_api_key
+    if not api_key:
+        return
+    provider = TracerProvider(resource=Resource.create({SERVICE_NAME: "conv-relay-scheduling"}))
+    <span class="cm"># Batches on a background thread, so calls never block on Bluejay.</span>
+    provider.add_span_processor(
+        BatchSpanProcessor(
+            OTLPSpanExporter(endpoint=BLUEJAY_TRACES_URL, headers={"X-API-KEY": api_key})
+        )
+    )
+    trace.set_tracer_provider(provider)
+    OpenAIInstrumentor().instrument(tracer_provider=provider)
+    logger.info("Bluejay tracing enabled")</code></pre>
+    </div>
+    <ul class="prose">
+      <li><strong><code>BatchSpanProcessor</code> instead of Bluejay's <code>SimpleSpanProcessor</code>.</strong> A simple processor exports each span as soon as it ends, on the thread that ended it, which here is the event loop serving your calls. The batch processor exports in the background. Before a call is linked, <code>bluejay.py</code> calls <code>force_flush()</code>, as Bluejay's guide requires (section 06).</li>
+      <li><strong>OpenAI requests are traced with no code from you.</strong> <code>OpenAIInstrumentor</code> wraps the OpenAI SDK, so every <code>chat.completions.create</code> call becomes an <code>openai.chat</code> span carrying the model, messages, tool calls and token counts. For a streamed reply, the span ends when the stream has been read to the end.</li>
+    </ul>
+    <div class="aside">
+      <div class="aside-label">Read the key from your settings, not os.environ</div>
+      <p>pydantic-settings loads <code>.env</code> into your settings object but doesn't copy it into <code>os.environ</code>. A <code>setup()</code> that reads <code>os.environ["BLUEJAY_API_KEY"]</code> finds nothing and silently does nothing. Read <code>config.bluejay_api_key</code> instead, and log a line when tracing turns on so you can see it did.</p>
+    </div>
+    <div class="checkpoint">
+      <div class="checkpoint-label">Checkpoint</div>
+      <p>Restart the app. The startup log should show <code>Bluejay tracing enabled</code>.</p>
+    </div>
+  </section>
+
+  <!-- ===== 04 ===== -->
+  <section class="post-section" id="call-span" data-menu="Give each call one trace">
+    <div class="eyebrow">04</div>
+    <h2>Give each call one trace</h2>
+    <p>With only <code>setup()</code> in place, every OpenAI request has no parent span, so OpenTelemetry starts a new trace for each one. Bluejay would see a dozen one-span traces per call, with nothing to say they belong together, and no single trace ID to attach to the result.</p>
+    <p>The fix is one span that covers the whole call. Open it around the loop that serves the ConversationRelay WebSocket, and make it current:</p>
+    <div class="code-panel">
+      <div class="code-label">src/twilio/websocket_receiver.py</div>
+      <pre><code><span class="add">from opentelemetry import trace
+
+from src import bluejay</span>
+...
+<span class="add">tracer = trace.get_tracer(__name__)</span>
+
+
+async def handle_relay_websocket(ws: WebSocket) -&gt; None:
+    ...
+    if params.get("session_id") and params.get("role"):
+        await _run_bridge_loop(ws, sender, setup)
+    else:
+        <span class="add">with tracer.start_as_current_span("call", attributes={"call.sid": setup.callSid}) as call_span:</span>
+            await _run_agent_loop(ws, sender, setup)
+        <span class="add">await bluejay.link_simulation(call_span, setup.callSid)</span></code></pre>
+    </div>
+    <ul class="prose">
+      <li><strong>The span starts when ConversationRelay's <code>setup</code> message arrives</strong> and ends when the WebSocket closes, after a hangup or a handoff.</li>
+      <li><strong>Every span created during the call lands under it.</strong> The handler starts each caller turn with <code>asyncio.create_task(process_turn(...))</code>, and a task copies the current context when it's created. So the OpenAI spans inside each turn find <code>call</code> as their parent, even with several calls in progress at once. You don't pass a trace ID around.</li>
+      <li><strong>Opening the span at the call site</strong> keeps <code>_run_agent_loop</code> as it was, with no reindenting.</li>
+      <li><strong>The last line links the call to its result</strong> once the span has ended (section 06).</li>
+    </ul>
+
+    <h3>What one call looks like</h3>
+    <p>A 30-second test call from the scheduling agent, as Bluejay shows it. The OpenAI requests come in pairs: the first asks for a tool, and the second replies after the tool has run.</p>
+    <div class="code-panel">
+      <div class="code-label">one call · 6 model requests</div>
+      <div class="trace-tree">
+        <div class="row"><span class="name"><span class="dot root"></span>call</span><span class="attrs">call.sid · 29.92s</span></div>
+        <div class="row"><span class="name">├─ <span class="dot turn"></span>openai.chat</span><span class="attrs">1.75s</span></div>
+        <div class="row"><span class="name">├─ <span class="dot turn"></span>openai.chat</span><span class="attrs">1.20s</span></div>
+        <div class="row"><span class="name">├─ <span class="dot turn"></span>openai.chat</span><span class="attrs">1.22s</span></div>
+        <div class="row"><span class="name">├─ <span class="dot turn"></span>openai.chat</span><span class="attrs">1.19s</span></div>
+        <div class="row"><span class="name">├─ <span class="dot turn"></span>openai.chat</span><span class="attrs">1.06s</span></div>
+        <div class="row"><span class="name">└─ <span class="dot turn"></span>openai.chat</span><span class="attrs">1.16s</span></div>
+      </div>
+      <div class="trace-legend"><span><span class="dot root" style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;"></span>your span</span><span><span class="dot turn" style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;"></span>OpenAI instrumentation</span></div>
+    </div>
+    <div class="screenshot-panel">
+      <div class="screenshot-slot">Screenshot: the call's trace in Bluejay</div>
+      <div class="screenshot-caption">One root span for the call, with every model request underneath it.</div>
+    </div>
+
+    <h3>Add spans for the rest of your app</h3>
+    <p>The trace above doesn't show the tools themselves, or which requests belong to which caller turn. Add a span to any step you want to see, such as a tool, a database lookup or a guardrail check, with the plain OpenTelemetry API. Anything you open while a call is in progress nests under <code>call</code>:</p>
+    <div class="code-panel">
+      <div class="code-label">your agent code</div>
+      <pre><code>from opentelemetry import trace
+
+tracer = trace.get_tracer(__name__)
+
+with tracer.start_as_current_span("tool.schedule_appointment") as span:
+    result = await tool_registry.run(tc.name, tc.arguments, state)
+    span.set_attribute("tool.success", result.success)</code></pre>
+    </div>
+    <p>To add something to the span that's already open, without starting a new one, use <code>trace.get_current_span().set_attribute(...)</code> or <code>.add_event(...)</code>.</p>
+    <p>Pick span names you can match on. A Trace metric checks for span names only (section 07), so use a fixed name like <code>tool.schedule_appointment</code>, and put changing values such as IDs in attributes.</p>
+  </section>
+
+  <!-- ===== 05 ===== -->
+  <section class="post-section" id="trigger" data-menu="Trigger the test call">
+    <div class="eyebrow">05</div>
+    <h2>Trigger the test call</h2>
+    <p>In an outbound test, the Digital Humans wait on their lines until your agent reaches them or the run times out. Bluejay can't make your agent dial, so it asks your app to: it POSTs once per conversation to the agent's <strong>Outbound Trigger Webhook URL</strong>. Bluejay rejects the run if the URL is empty.</p>
+    <p>The trigger also matters for tracing. It's the only place Bluejay tells your app which simulation result a call belongs to. An app that receives the trigger and places the call can link its trace to that result exactly.</p>
+
+    <h3>What Bluejay sends</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Part</th><th>Value</th></tr></thead>
+        <tbody>
+          <tr><td><code>phone_number</code></td><td>The Digital Human's number, in E.164</td></tr>
+          <tr><td><code>sim_conversation_id</code></td><td>The ID of this conversation in the simulation</td></tr>
+          <tr><td><code>X-Bluejay-Idempotency-Key</code></td><td>The conversation ID. Bluejay's docs say to use it to ignore a repeated request.</td></tr>
+          <tr><td><code>X-Bluejay-Signature</code></td><td>An HMAC-SHA256 of the raw body, signed with the agent's Webhook Signing Key. This route doesn't check it (see below).</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Your app must return a <code>2xx</code> within 15 seconds. After 3 failed tries, Bluejay ends the conversation with <code>OUTBOUND_TRIGGER_FAILED</code>. The body above is the default. If you set a custom body template on the agent, the route has to read your fields instead.</p>
+
+    <h3>The trigger route</h3>
+    <p>The route dials the Digital Human's phone number with Twilio's REST API. The call's <code>url</code> is the app's existing <code>/incoming-call</code> endpoint, so the test call gets the same ConversationRelay TwiML, and runs through the same WebSocket handler, as any other call:</p>
+    <div class="code-panel">
+      <div class="code-label">src/bluejay.py · /bluejay/trigger-call</div>
+      <pre><code>router = APIRouter()
+
+<span class="cm"># Test calls this app placed: idempotency key -&gt; call SID, and call SID -&gt; (result ID, idempotency key).</span>
+_triggers: dict[str, str] = {}
+_simulations: dict[str, tuple[str, str]] = {}
+
+
+@router.post("/bluejay/trigger-call")
+async def trigger_call(request: Request) -&gt; dict:
+    """Bluejay's outbound trigger: call the Digital Human and remember which result the call belongs to."""
+
+    data = await request.json()
+    phone_number = data.get("phone_number")
+    result_id = str(data.get("sim_conversation_id") or "")
+
+    if not phone_number or not result_id:
+        raise HTTPException(status_code=400, detail="phone_number and sim_conversation_id are required")
+    trigger_key = request.headers.get("X-Bluejay-Idempotency-Key") or result_id
+
+    if trigger_key in _triggers:
+        return {"status": "ok", "call_sid": _triggers[trigger_key]}
+
+    client = Client(config.twilio_account_sid, config.twilio_auth_token)
+
+    call = await asyncio.to_thread(
+        client.calls.create, to=phone_number, from_=config.twilio_phone_number, url=config.http_url + "/incoming-call"
+    )
+    _triggers[trigger_key] = call.sid
+    _simulations[call.sid] = (result_id, trigger_key)
+    logger.info("Bluejay test call placed to=%s callSid=%s result_id=%s", phone_number, call.sid, result_id)
+    return {"status": "ok", "call_sid": call.sid}</code></pre>
+    </div>
+    <p>The route does three things, in order:</p>
+    <ul class="prose">
+      <li><strong>It places the call once.</strong> Bluejay retries a trigger that doesn't get a <code>2xx</code>. A retry carries the same idempotency key, so the route returns the call it already placed.</li>
+      <li><strong>It answers quickly.</strong> The Twilio client blocks, so <code>calls.create</code> runs in a thread with <code>asyncio.to_thread</code>, and the event loop keeps serving calls in progress. The route returns as soon as Twilio accepts the call, well inside Bluejay's 15 seconds.</li>
+      <li><strong>It remembers which result the call belongs to.</strong> Your app places the call, so it has the Call SID before the call connects. The route stores the result ID under that Call SID. When ConversationRelay connects the call, its <code>setup</code> message carries the same Call SID, and <code>link_simulation</code> looks the result ID up by it (section 06).</li>
+    </ul>
+
+    <div class="aside">
+      <div class="aside-label">This route doesn't check the signature</div>
+      <p>To keep the code small, the route skips <code>X-Bluejay-Signature</code>. Anyone who finds the URL can make your app place calls from your Twilio number. That's acceptable for a test behind a tunnel. Before you leave it running anywhere else, verify the signature as Bluejay's webhook docs describe: an HMAC-SHA256 of the raw request bytes, read with <code>await request.body()</code> before parsing, compared with <code>hmac.compare_digest</code>.</p>
+    </div>
+
+    <div class="aside">
+      <div class="aside-label">Not in Bluejay's guides: is sim_conversation_id the simulation result ID?</div>
+      <p>Bluejay's Traces guide says to read the result ID from an <code>X-Simulation-Result-Id</code> header that comes with a SIP call. A call your app places never receives that header. The trigger docs send <code>sim_conversation_id</code>, but don't say it's the same ID. Bluejay's API spec treats them as the same: one field description says to read the result ID "from the X-Simulation-Result-Id SIP header … or the sim_conversation_id dynamic variable". This post relies on that, and linking with it worked in testing. If linking returns <code>404</code>, check this first.</p>
+    </div>
+
+    <div class="diagram-panel" style="padding: 24px 32px;">
+      <div class="diagram-label">Outbound test · sequence</div>
+      <pre class="mermaid" style="background: transparent; margin: 0; text-align: center;">
+sequenceDiagram
+  autonumber
+  participant BJ as Bluejay
+  participant App as Your app (bluejay.py)
+  participant Tel as Twilio Voice + ConversationRelay
+  BJ->>App: POST /bluejay/trigger-call<br/>{ phone_number, sim_conversation_id }
+  App->>Tel: calls.create(to=phone_number, url=/incoming-call)
+  Tel-->>App: call_sid
+  Note over App: _simulations[call_sid] = result ID
+  App-->>BJ: 200 { status: "ok", call_sid }
+  Tel->>BJ: Rings the Digital Human's number
+  Tel->>App: POST /incoming-call, returns ConversationRelay TwiML
+  Tel->>App: WebSocket "setup" { callSid, ... }
+  Note over App: call span starts
+  Note over App: OpenAI spans and tool calls recorded during the call
+  Tel->>App: WebSocket closes, call span ends
+  App->>BJ: Export the call's spans (force_flush)
+  App->>BJ: POST /v1/update-simulation-result<br/>{ simulation_result_id, trace_ids, tool_calls, metadata }
+      </pre>
+      <p class="diagram-caption">Your app places the call, so it knows the Call SID before the call connects, and the match is exact.</p>
+    </div>
+  </section>
+
+  <!-- ===== 06 ===== -->
+  <section class="post-section" id="attach" data-menu="Attach the call to its result">
+    <div class="eyebrow">06</div>
+    <h2>Attach the call to its result</h2>
+    <p>Bluejay's docs describe the same flow for every agent:</p>
+    <ol class="prose">
+      <li>While the call runs, record its tool calls (and any events and metadata).</li>
+      <li>After the call ends, call <code>force_flush()</code> on the tracer provider. Otherwise, the docs warn, "the trace can be missing."</li>
+      <li>Send everything to <code>POST https://api.getbluejay.ai/v1/update-simulation-result</code>, with your API key in the <code>X-API-Key</code> header.</li>
+    </ol>
+
+    <h3>Record tool calls and metadata</h3>
+    <p><code>bluejay.py</code> keeps what each call records in memory, keyed by Call SID, until the call is linked. Both functions do nothing unless <code>BLUEJAY_API_KEY</code> is set:</p>
+    <div class="code-panel">
+      <div class="code-label">src/bluejay.py · record_tool and set_metadata</div>
+      <pre><code><span class="cm"># Tool calls and metadata recorded during each call, keyed by call SID; sent when the call is linked.</span>
+_recorded: dict[str, dict] = {}
+
+
+def _record(call_sid: str) -&gt; dict:
+    return _recorded.setdefault(call_sid, {"tool_calls": [], "metadata": {}})
+
+
+def record_tool(call_sid: str, name: str, parameters: dict, output: Any) -&gt; None:
+    """Record a tool call for Bluejay's Tool Call metric."""
+    if config.bluejay_api_key:
+        _record(call_sid)["tool_calls"].append(
+            {"name": name, "parameters": parameters, "output": output, "time_ns": time.time_ns()}
+        )
+
+
+def set_metadata(call_sid: str, metadata: dict) -&gt; None:
+    """Set call-level values; each key fills a {{variable}} in Bluejay metric prompts."""
+    if config.bluejay_api_key:
+        _record(call_sid)["metadata"].update(metadata)</code></pre>
+    </div>
+    <p><strong>Tool calls.</strong> Every tool the scheduling agent has runs through one line, <code>tool_registry.run</code>, so one call to <code>record_tool</code> right after it covers all nine. It records the tool's name, the arguments the model passed, and the result, or the error if the tool failed:</p>
+    <div class="code-panel">
+      <div class="code-label">src/orchestration/conversation_graph.py · process_turn</div>
+      <pre><code>for tc in tool_calls:
+    logger.info("executing tool=%s callSid=%s", tc.name, state.call_sid)
+    result = await tool_registry.run(tc.name, tc.arguments, state)
+    <span class="add">bluejay.record_tool(
+        state.call_sid, tc.name, tc.arguments, result.data if result.success else {"error": result.error}
+    )</span></code></pre>
+    </div>
+    <p><strong>Metadata.</strong> When the WebSocket loop ends, the handler sums up the call from the session state it already keeps. Each key becomes a variable you can use in a metric prompt. Patient names and phone numbers are left out, because they're personal data:</p>
+    <div class="code-panel">
+      <div class="code-label">src/twilio/websocket_receiver.py · _run_agent_loop</div>
+      <pre><code>    finally:
+        <span class="add">bluejay.set_metadata(call_sid, _call_metadata(state))</span>
+        session_manager.end_session(call_sid)
+        event_bus.publish(SessionEvent(call_sid=call_sid, event="ended"))
+
+
+_OUTCOMES = {"schedule_appointment": "booked", "reschedule_appointment": "rescheduled", "cancel_appointment": "cancelled"}
+
+
+def _call_metadata(state: SessionState) -&gt; dict:
+    """Summarize the call for Bluejay metric prompts. Leaves out names and phone numbers (PII)."""
+    results = [json.loads(m.content) for m in state.messages if m.role == "tool"]
+    succeeded = {r["tool_name"] for r in results if r["success"]}
+    return {
+        "outcome": ", ".join(o for tool, o in _OUTCOMES.items() if tool in succeeded) or "no_action",
+        "patient_identified": state.patient_id is not None,
+        "final_language": state.language,
+        "turns": sum(m.role == "user" for m in state.messages),
+        "tool_failures": sum(not r["success"] for r in results),
+    }</code></pre>
+    </div>
+    <p>The fields come from Bluejay's API reference:</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Tool call field</th><th>Required</th><th>Set by bluejay.py</th></tr></thead>
+        <tbody>
+          <tr><td><code>name</code></td><td>Yes</td><td>The tool's name. A Tool Call metric matches on it.</td></tr>
+          <tr><td><code>start_offset_ms</code></td><td>Yes</td><td>When the tool ran, in milliseconds from the start of the <code>call</code> span</td></tr>
+          <tr><td><code>parameters</code></td><td>No</td><td>The arguments the model passed</td></tr>
+          <tr><td><code>output</code></td><td>No</td><td>What the tool returned, or <code>{"error": ...}</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="aside">
+      <div class="aside-label">Where offsets start</div>
+      <p>Bluejay counts offsets "from the start of the call". <code>bluejay.py</code> counts them from when the <code>call</code> span starts, which is when ConversationRelay connects the call to your app. Bluejay's docs don't say exactly when its clock starts, so the two may differ by the time it takes the call to connect.</p>
+    </div>
+
+    <h3>Send it when the call ends</h3>
+    <p><code>link_simulation</code> runs once per call, after the <code>call</code> span ends. It builds one request from the trace ID, the result ID the trigger route stored, and whatever was recorded:</p>
+    <div class="code-panel">
+      <div class="code-label">src/bluejay.py · link_simulation</div>
+      <pre><code>BLUEJAY_LINK_URL = "https://api.getbluejay.ai/v1/update-simulation-result"
+
+
+async def link_simulation(call_span, call_sid: str) -&gt; None:
+    """Send a finished call's trace, tool calls and metadata to its Bluejay simulation result."""
+    if not config.bluejay_api_key:
+        return
+    recorded = _recorded.pop(call_sid, {"tool_calls": [], "metadata": {}})
+    simulation = _simulations.pop(call_sid, None)
+    body: dict[str, Any] = {"trace_ids": [format(call_span.get_span_context().trace_id, "032x")]}
+    if simulation is not None:  <span class="cm"># placed by trigger_call, so the result ID is known</span>
+        result_id, trigger_key = simulation
+        _triggers.pop(trigger_key, None)
+        body["simulation_result_id"] = result_id
+    else:  <span class="cm"># let Bluejay match the call by time</span>
+        start, end = call_span.start_time / 1e9, call_span.end_time / 1e9  <span class="cm"># SDK spans record ns</span>
+        body["start_time"] = datetime.fromtimestamp(start, timezone.utc).isoformat()
+        body["end_time"] = datetime.fromtimestamp(end, timezone.utc).isoformat()
+        body["duration"] = end - start
+    if recorded["tool_calls"]:
+        body["tool_calls"] = [
+            {
+                "name": tc["name"],
+                "parameters": tc["parameters"],
+                "output": tc["output"],
+                "start_offset_ms": max(0, (tc["time_ns"] - call_span.start_time) // 1_000_000),
+            }
+            for tc in recorded["tool_calls"]
+        ]
+    if recorded["metadata"]:
+        body["metadata"] = recorded["metadata"]
+
+    <span class="cm"># Spans are batched; push them out before Bluejay looks the trace up.</span>
+    await asyncio.to_thread(trace.get_tracer_provider().force_flush)
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.post(
+                BLUEJAY_LINK_URL,
+                content=json.dumps(body, default=str),  <span class="cm"># tool outputs may not be plain JSON</span>
+                headers={"X-API-Key": config.bluejay_api_key, "Content-Type": "application/json"},
+            )
+    except httpx.HTTPError:
+        logger.exception("Bluejay link request failed")
+        return
+    if resp.is_error:
+        logger.warning("Bluejay link failed status=%s body=%s", resp.status_code, resp.text)
+    else:
+        logger.info(
+            "Bluejay trace linked trace_id=%s result_id=%s tool_calls=%d",
+            body["trace_ids"][0],
+            body.get("simulation_result_id", "matched by time"),
+            len(body.get("tool_calls", [])),
+        )</code></pre>
+    </div>
+    <ul class="prose">
+      <li><strong>One request per call.</strong> The trace, every tool call and the metadata go together. The spans themselves were already sent in batches while the call ran.</li>
+      <li><strong>The trace ID goes in hex.</strong> OpenTelemetry stores it as an integer. Bluejay expects the usual 32-character hex form.</li>
+      <li><strong>The flush runs off the event loop.</strong> <code>force_flush()</code> blocks until the batch is exported, so it runs in a thread.</li>
+      <li><strong>Calls the trigger didn't place still get linked.</strong> Without a result ID, the request sends <code>start_time</code>, <code>end_time</code> and <code>duration</code>, and Bluejay matches the call by time. That match is looser: Bluejay returns <code>409</code> and writes nothing when several calls fit.</li>
+      <li><strong>Failures are logged, not retried.</strong> Bluejay returns <code>404</code> when no result matches, <code>409</code> when the match is ambiguous, and <code>422</code> for an invalid body. None of them affects the call, which has already ended.</li>
+    </ul>
+  </section>
+
+  <!-- ===== 07 ===== -->
+  <section class="post-section" id="run" data-menu="Write metrics and run a test">
+    <div class="eyebrow">07</div>
+    <h2>Write metrics and run a test</h2>
+    <p>Three kinds of metric read the data from section 06. In the scheduling agent they check different things:</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Metric</th><th>How it passes</th><th>Scheduling example</th></tr></thead>
+        <tbody>
+          <tr><td>Tool Call</td><td>The agent called every listed tool, matched by the <code>name</code> you sent in <code>tool_calls</code></td><td>List <code>schedule_appointment</code>: the agent actually booked when asked to</td></tr>
+          <tr><td>Trace</td><td>The linked trace contains (or doesn't contain) every listed span name</td><td>Contains <code>openai.chat</code> today. With tool spans from section 04, contains <code>tool.lookup_patient</code>.</td></tr>
+          <tr><td>LLM as a Judge</td><td>A model grades the conversation against your prompt, which can use <code>metadata</code> keys</td><td>"The app reports outcome <code>{{outcome}}</code>. Does the transcript agree?"</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <ul class="prose">
+      <li><strong>A Trace metric matches span names only.</strong> Its type is <code>trace_span</code>. You set <code>span_names</code> and a <code>condition</code> of <code>contains</code> or <code>does_not_contain</code>. Names are matched without regard to case, and Bluejay suggests names it has seen in your recent traces. A conversation with no linked trace fails unless <strong>Allow Not Applicable</strong> is on.</li>
+      <li><strong>Every metric sees a summary of the linked trace</strong>, so even a judge metric that never mentions it can use what the trace shows.</li>
+    </ul>
+
+    <div class="impl-steps">
+      <div class="impl-step">
+        <span class="step-num">01</span>
+        <div class="step-title">Set the Outbound Trigger Webhook URL on your Bluejay agent</div>
+        <div class="step-desc">Keep the default body, so the route finds <code>phone_number</code> and <code>sim_conversation_id</code>.</div>
+        <div class="code-panel">
+          <div class="code-label">Bluejay agent configuration</div>
+          <pre><code>Outbound Trigger Webhook URL: https://&lt;your-domain&gt;/bluejay/trigger-call</code></pre>
+        </div>
+      </div>
+      <div class="impl-step">
+        <span class="step-num">02</span>
+        <div class="step-title">Start the app</div>
+        <div class="step-desc">Check for <code>Bluejay tracing enabled</code> in the startup log.</div>
+      </div>
+      <div class="impl-step">
+        <span class="step-num">03</span>
+        <div class="step-title">Add your metrics, then create a simulation and run it</div>
+        <div class="step-desc">For each conversation, Bluejay POSTs to your trigger URL, and your app logs <code>Bluejay test call placed to=… callSid=… result_id=…</code> as it dials the Digital Human.</div>
+      </div>
+      <div class="impl-step">
+        <span class="step-num">04</span>
+        <div class="step-title">Open a result</div>
+        <div class="step-desc">When the call ends, your app logs <code>Bluejay trace linked trace_id=… result_id=… tool_calls=…</code>. The result shows the trace beside the conversation, and the metrics score against it.</div>
+      </div>
+    </div>
+
+    <h3>If the trace doesn't appear</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>What you see</th><th>What it means</th></tr></thead>
+        <tbody>
+          <tr><td>No <code>Bluejay tracing enabled</code> at startup</td><td>The app didn't find the API key. Check that it's on your settings class (section 03).</td></tr>
+          <tr><td>Trigger requests return <code>400</code></td><td>The body isn't the default. Read your custom template's fields in the route.</td></tr>
+          <tr><td>Each model request is its own trace</td><td>There's no <code>call</code> span, or the work runs outside it (section 04).</td></tr>
+          <tr><td><code>Bluejay link failed status=404</code></td><td>No result matched. With a result ID, check the <code>sim_conversation_id</code> note in section 05.</td></tr>
+          <tr><td><code>Bluejay link failed status=409</code></td><td>The time-window match was ambiguous. Place test calls through the trigger route so the result ID is known.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Things to know</h3>
+    <ul class="prose">
+      <li><strong>Run a single instance.</strong> The trigger route and the recordings are held in the app's memory, so the instance that gets the trigger must also handle the call.</li>
+      <li><strong>Don't share a Digital Human's number between simulations that run at the same time.</strong> If a newer simulation takes the number mid-test, Bluejay stops the earlier test with <code>SIP_TRUNK_RECYCLED</code>.</li>
+      <li><strong>Model requests carry the conversation.</strong> The OpenAI instrumentation records the messages in each request and the reply, so what the caller says goes to Bluejay in the trace. Check the instrumentation's docs for how to turn off content capture if that doesn't fit your data policy.</li>
+      <li><strong>Use <code>trace_ids</code>, not <code>trace_id</code>.</strong> Bluejay's Monitor Traces page mentions <code>trace_id</code>, but the API reference marks it as deprecated in favor of <code>trace_ids</code>.</li>
+    </ul>
+  </section>
+
+  <!-- ===== 08 ===== -->
+  <section class="post-section" id="production" data-menu="The same code in production">
+    <div class="eyebrow">08</div>
+    <h2>The same code in production</h2>
+    <p>Nothing in <code>bluejay.py</code> is test-only except the trigger route. With the key set, the exporter sends every call's spans, real callers included, to the same endpoint. The recordings for a call that no trigger placed are sent with a time-window match, which finds no simulation result for a real caller and is logged as a failure.</p>
+    <p>To score a real call and show its trace beside it, send the conversation to <code>POST /v1/evaluate</code>. According to Bluejay's API reference, it requires:</p>
+    <ul class="prose">
+      <li><strong><code>agent_id</code></strong> or <code>external_agent_id</code>.</li>
+      <li><strong><code>start_time_utc</code></strong>. Transcript, tool-call and event offsets count from this moment.</li>
+      <li><strong><code>participants</code></strong>: one <code>AGENT</code> and one <code>USER</code>.</li>
+      <li><strong>The conversation itself</strong>: a <code>transcript</code>, a <code>transcript_url</code> or a <code>recording_url</code>.</li>
+    </ul>
+    <p>It also takes the same <code>trace_ids</code>, <code>tool_calls</code> and <code>metadata</code> as a test call. <code>bluejay.py</code> doesn't send production calls yet. The app would need to build the transcript, which it already sees turn by turn on the WebSocket, and call <code>/v1/evaluate</code> instead of <code>update-simulation-result</code> for calls the trigger didn't place.</p>
+  </section>
+
+  <footer class="post-section sources" id="sources" data-menu="Sources">
+    <div class="eyebrow">Sources</div>
+    <ul>
+      <li><a href="https://docs.getbluejay.ai/monitor/traces" target="_blank" rel="noopener">Bluejay: Traces (Monitor)</a></li>
+      <li><a href="https://docs.getbluejay.ai/test/traces" target="_blank" rel="noopener">Bluejay: Traces (Test)</a></li>
+      <li><a href="https://docs.getbluejay.ai/test/metrics#tool-calls-events-and-metadata" target="_blank" rel="noopener">Bluejay: Tool calls, events, and metadata</a></li>
+      <li><a href="https://docs.getbluejay.ai/test/metrics/deterministic" target="_blank" rel="noopener">Bluejay: Deterministic metrics (Tool Call, Trace)</a></li>
+      <li><a href="https://docs.getbluejay.ai/api-reference/endpoint/update-simulation-result" target="_blank" rel="noopener">Bluejay: POST /v1/update-simulation-result</a></li>
+      <li><a href="https://docs.getbluejay.ai/api-reference/endpoint/evaluate" target="_blank" rel="noopener">Bluejay: POST /v1/evaluate</a></li>
+      <li><a href="https://docs.getbluejay.ai/test/simulations/reference" target="_blank" rel="noopener">Bluejay: Simulations reference, outbound trigger webhook</a></li>
+      <li><a href="https://docs.getbluejay.ai/integrations/phone-number#outbound-agents" target="_blank" rel="noopener">Bluejay: Outbound agents</a></li>
+      <li><a href="https://docs.getbluejay.ai/integrations/http-webhooks#verify-the-signature" target="_blank" rel="noopener">Bluejay: Verify the signature</a></li>
+      <li><a href="https://api.getbluejay.ai/openapi.json" target="_blank" rel="noopener">Bluejay: API spec (OpenAPI)</a></li>
+      <li><a href="https://www.twilio.com/docs/voice/conversationrelay" target="_blank" rel="noopener">Twilio: ConversationRelay</a></li>
+      <li><a href="https://opentelemetry.io/docs/languages/python/" target="_blank" rel="noopener">OpenTelemetry Python</a></li>
+    </ul>
+  </footer>
+
+</article>
+
+</div>
+
+
+<script>
+  // Contents menu: built from each section's data-menu; highlights the section in view.
+  (function () {
+    var menu = document.getElementById('side-menu');
+    var sections = document.querySelectorAll('[data-menu]');
+    var items = [];
+    sections.forEach(function (s) {
+      var a = document.createElement('a');
+      a.className = 'side-menu-item';
+      a.href = '#' + s.id;
+      var eb = s.querySelector('.eyebrow');
+      var num = eb && /^\d+$/.test(eb.textContent.trim()) ? eb.textContent.trim() : '';
+      a.innerHTML = (num ? '<span class="n">' + num + '</span>' : '') + s.dataset.menu;
+      a.addEventListener('click', function () { if (window.innerWidth < 900) closeMenu(); });
+      menu.appendChild(a);
+      items.push(a);
+    });
+
+    function setActive() {
+      var idx = 0;
+      sections.forEach(function (s, i) { if (s.getBoundingClientRect().top < 140) idx = i; });
+      items.forEach(function (a, i) { a.classList.toggle('active', i === idx); });
+    }
+    window.addEventListener('scroll', setActive, { passive: true });
+    setActive();
+
+    var toggle = document.getElementById('menu-toggle');
+    var backdrop = document.getElementById('menu-backdrop');
+    function openMenu() { menu.classList.add('open'); backdrop.classList.add('open'); document.body.classList.add('menu-open'); }
+    function closeMenu() { menu.classList.remove('open'); backdrop.classList.remove('open'); document.body.classList.remove('menu-open'); }
+    window.closeMenu = closeMenu;
+    if (window.innerWidth < 900) closeMenu();
+    toggle.addEventListener('click', function () { menu.classList.contains('open') ? closeMenu() : openMenu(); });
+    backdrop.addEventListener('click', closeMenu);
+  })();
+
+  // Theme toggle — flips [data-theme] on <html> and persists the choice.
+  (function () {
+    var btn = document.getElementById('theme-toggle');
+    btn.addEventListener('click', function () {
+      var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      if (isDark) {
+        document.documentElement.removeAttribute('data-theme');
+        try { localStorage.setItem('agenda-theme', 'light'); } catch (e) {}
+      } else {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        try { localStorage.setItem('agenda-theme', 'dark'); } catch (e) {}
+      }
+    });
+  })();
+</script>
+
+<!-- Mermaid: declarative sequence diagrams themed to the deck's Paper/Ink palette.
+     Palette is derived from the deck's CSS variables and re-rendered when
+     `html[data-theme]` flips, so Ink and Paper both work without per-diagram
+     overrides. -->
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+
+  const PAPER = {
+    primaryColor:        '#FDD35C',
+    primaryBorderColor:  '#E8A62A',
+    primaryTextColor:    '#D9482E',
+    lineColor:           '#E88030',
+    signalColor:         '#E88030',
+    signalTextColor:     '#2B241E',
+    noteBkgColor:        '#FFF6DC',
+    noteBorderColor:     '#E8A62A',
+    noteTextColor:       '#4E4033',
+    actorBkg:            '#FDD35C',
+    actorBorder:         '#E8A62A',
+    actorTextColor:      '#D9482E',
+    actorLineColor:      '#E88030',
+    activationBkgColor:  '#F0EFEA',
+    activationBorderColor:'#B8B0A0',
+    labelBoxBkgColor:    '#EEF3F9',
+    labelBoxBorderColor: '#6BA4E7',
+    labelTextColor:      '#4A6B85',
+    sequenceNumberColor: '#2B241E',
+    altBackground:       'rgba(107,164,231,0.06)',
+  };
+
+  // Ink counterpart — warmer dark substrate, accents brightened so they still
+  // read warm on dark. Matches the deck's Ink CSS variable palette.
+  const INK = {
+    primaryColor:        '#3B2E1E',
+    primaryBorderColor:  '#D9A647',
+    primaryTextColor:    '#E07B57',
+    lineColor:           '#E07B57',
+    signalColor:         '#E07B57',
+    signalTextColor:     '#F0E8D8',
+    noteBkgColor:        '#2A2217',
+    noteBorderColor:     '#D9A647',
+    noteTextColor:       '#F0E8D8',
+    actorBkg:            '#3B2E1E',
+    actorBorder:         '#D9A647',
+    actorTextColor:      '#E07B57',
+    actorLineColor:      '#E07B57',
+    activationBkgColor:  '#2A2217',
+    activationBorderColor:'#7A6F5E',
+    labelBoxBkgColor:    '#1F2B35',
+    labelBoxBorderColor: '#8CB3CF',
+    labelTextColor:      '#8CB3CF',
+    sequenceNumberColor: '#F0E8D8',
+    altBackground:       'rgba(140,179,207,0.08)',
+  };
+
+  const sources = new WeakMap();
+
+  function init() {
+    const dark = document.documentElement.dataset.theme === 'dark';
+    mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: 'loose',
+      theme: 'base',
+      themeVariables: {
+        fontFamily: '"IBM Plex Sans", system-ui, sans-serif',
+        fontSize: '14px',
+        ...(dark ? INK : PAPER),
+      },
+      sequence: {
+        diagramMarginX: 24,
+        diagramMarginY: 12,
+        boxMargin: 20,
+        noteMargin: 12,
+        messageMargin: 50,
+        mirrorActors: false,
+        wrap: true,
+      },
+    });
+  }
+
+  async function render() {
+    const blocks = document.querySelectorAll('pre.mermaid');
+    for (const [i, el] of blocks.entries()) {
+      if (!sources.has(el)) sources.set(el, el.textContent);
+      const source = sources.get(el);
+      try {
+        const { svg } = await mermaid.render(`mmd-${i}-${Date.now()}`, source);
+        el.innerHTML = svg;
+      } catch (err) {
+        console.error('Mermaid render failed', err);
+      }
+    }
+  }
+
+  init();
+  render();
+
+  // Re-render on theme flip so Mermaid matches Ink/Paper.
+  new MutationObserver(() => { init(); render(); })
+    .observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+</script>
+
+</body>
+</html>

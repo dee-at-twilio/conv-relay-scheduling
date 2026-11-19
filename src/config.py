@@ -24,6 +24,8 @@ class AppConfig(BaseSettings):
 
     memory_store_sid: str = ""  # optional — payload's resolvedContext.memory.memoryStoreId wins if set
 
+    bluejay_api_key: str = ""  # optional — enables tracing to Bluejay
+
     tts_provider: str = "ElevenLabs"
     tts_voice: str = "lcMyyd2HUfFzxdCaC4Ta"
     tts_language: str = "en-US"

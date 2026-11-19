@@ -1,5 +1,6 @@
 import logging
 import sys
+from src import bluejay
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket
 from nicegui import ui
@@ -24,6 +25,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Scheduling Agent", lifespan=lifespan)
 app.include_router(twilio_router)
 app.include_router(intelligence_router)
+app.include_router(bluejay.router)
 
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
@@ -37,4 +39,5 @@ async def bridge_ws(ws: WebSocket):
 dashboard.create()
 live_calls.create()
 appointments.create()
+bluejay.setup()
 ui.run_with(app, mount_path="/pages", storage_secret="scheduling-agent")

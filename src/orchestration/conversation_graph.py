@@ -3,6 +3,7 @@ import asyncio
 import json
 import logging
 
+from src import bluejay
 from src.events.event_bus import event_bus
 from src.events.event_types import TranscriptEvent
 from src.events.event_types import ToolCallEvent as ToolCallUIEvent
@@ -93,6 +94,9 @@ async def process_turn(
         for tc in tool_calls:
             logger.info("executing tool=%s callSid=%s", tc.name, state.call_sid)
             result = await tool_registry.run(tc.name, tc.arguments, state)
+            bluejay.record_tool(
+                state.call_sid, tc.name, tc.arguments, result.data if result.success else {"error": result.error}
+            )
             event_bus.publish(ToolCallUIEvent(
                 call_sid=state.call_sid,
                 tool_name=tc.name,
