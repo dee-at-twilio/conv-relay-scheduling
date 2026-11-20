@@ -3,6 +3,9 @@ import asyncio
 import json
 import logging
 from fastapi import WebSocket, WebSocketDisconnect
+from openinference.instrumentation import using_session
+from openinference.semconv.trace import OpenInferenceSpanKindValues, SpanAttributes
+from opentelemetry import trace
 
 from src.events.event_bus import event_bus
 from src.events.event_types import SessionEvent, TranscriptEvent
@@ -14,6 +17,7 @@ from src.twilio.bridge_manager import BridgeParticipant, bridge_manager
 from src.twilio.relay_sender import ConversationRelaySender
 
 logger = logging.getLogger(__name__)
+tracer = trace.get_tracer(__name__)
 
 
 async def handle_relay_websocket(ws: WebSocket) -> None:
@@ -38,11 +42,24 @@ async def handle_relay_websocket(ws: WebSocket) -> None:
         logger.warning("expected setup as first frame, got %s", type(setup).__name__)
         return
 
+    # One span per call; turns and LLM calls (spawned via create_task) inherit it as parent
     params = setup.customParameters or {}
     if params.get("session_id") and params.get("role"):
-        await _run_bridge_loop(ws, sender, setup)
+        session_id = str(params["session_id"])
+        with using_session(session_id), _call_span("bridge_call", setup, session_id, {"bridge.role": str(params["role"])}):
+            await _run_bridge_loop(ws, sender, setup)
     else:
-        await _run_agent_loop(ws, sender, setup)
+        with using_session(setup.callSid), _call_span("call", setup, setup.callSid):
+            await _run_agent_loop(ws, sender, setup)
+
+
+def _call_span(name: str, setup: SetupMessage, session_id: str, extra: dict[str, str] | None = None):
+    return tracer.start_as_current_span(name, attributes={
+        SpanAttributes.OPENINFERENCE_SPAN_KIND: OpenInferenceSpanKindValues.AGENT.value,
+        SpanAttributes.SESSION_ID: session_id,
+        "twilio.call_sid": setup.callSid,
+        **(extra or {}),
+    })
 
 
 async def _run_agent_loop(ws: WebSocket, sender: ConversationRelaySender, setup: SetupMessage) -> None:

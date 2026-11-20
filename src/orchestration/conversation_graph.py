@@ -3,6 +3,9 @@ import asyncio
 import json
 import logging
 
+from openinference.semconv.trace import OpenInferenceSpanKindValues, SpanAttributes
+from opentelemetry import trace
+
 from src.events.event_bus import event_bus
 from src.events.event_types import TranscriptEvent
 from src.events.event_types import ToolCallEvent as ToolCallUIEvent
@@ -13,6 +16,7 @@ from src.tools.registry import tool_registry
 from src.twilio.relay_sender import ConversationRelaySender
 
 logger = logging.getLogger(__name__)
+tracer = trace.get_tracer(__name__)
 
 _MAX_TOOL_ROUNDS = 5
 _SENTENCE_ENDS = {".", "!", "?"}
@@ -32,6 +36,24 @@ def _build_messages(state: SessionState) -> list[dict]:
 
 
 async def process_turn(
+    state: SessionState,
+    user_text: str,
+    sender: ConversationRelaySender,
+    interrupted: asyncio.Event,
+) -> None:
+    with tracer.start_as_current_span("turn", attributes={
+        SpanAttributes.OPENINFERENCE_SPAN_KIND: OpenInferenceSpanKindValues.CHAIN.value,
+        SpanAttributes.SESSION_ID: state.call_sid,
+        SpanAttributes.INPUT_VALUE: user_text,
+    }) as span:
+        await _run_turn(state, user_text, sender, interrupted)
+        last = state.messages[-1] if state.messages else None
+        if last and last.role == "assistant" and last.content:
+            span.set_attribute(SpanAttributes.OUTPUT_VALUE, last.content)
+        span.set_attribute("turn.interrupted", state.user_interrupted)
+
+
+async def _run_turn(
     state: SessionState,
     user_text: str,
     sender: ConversationRelaySender,

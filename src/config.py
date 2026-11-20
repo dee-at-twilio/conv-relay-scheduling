@@ -22,6 +22,9 @@ class AppConfig(BaseSettings):
     def resolved_db_path(self) -> str:
         return f"{self.db}.db" if self.db else self.db_path
 
+    otel_exporter_endpoint: str = ""  # OTLP/HTTP traces URL, e.g. http://localhost:6006/v1/traces — tracing off if empty
+    otel_service_name: str = "scheduling-agent"
+
     memory_store_sid: str = ""  # optional — payload's resolvedContext.memory.memoryStoreId wins if set
 
     tts_provider: str = "ElevenLabs"
