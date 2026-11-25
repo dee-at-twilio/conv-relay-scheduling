@@ -2,6 +2,7 @@ from __future__ import annotations
 import json
 import logging
 from fastapi import WebSocket
+from opentelemetry import trace
 
 from src.models.relay import (
     TextMessage, PlayMessage, SendDigitsMessage, LanguageMessage, EndSessionMessage,
@@ -54,3 +55,6 @@ class ConversationRelaySender:
         text = json.dumps(payload)
         logger.debug("→ Twilio: %s", text)
         await self._ws.send_text(text)
+        # Text tokens are summarised per turn (turn.sent_text); log everything else on the active span
+        if payload.get("type") != "text":
+            trace.get_current_span().add_event(f"→ {payload.get('type')}", {"raw": text[:2000]})

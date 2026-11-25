@@ -9,6 +9,7 @@ from typing import Any
 from openai import AsyncOpenAI
 
 from src.config import config
+from src.telemetry import last_llm_span, mark_latency
 
 logger = logging.getLogger(__name__)
 
@@ -40,11 +41,14 @@ async def stream_completion(
         "model": config.openai_model,
         "messages": messages,
         "stream": True,
+        "stream_options": {"include_usage": True},  # final chunk carries token counts → cost in traces
     }
     if tools:
         kwargs["tools"] = tools
 
     stream = await _client.chat.completions.create(**kwargs)
+    span = last_llm_span()  # request-sent time = span start
+    ttft_ms: float | None = None
 
     # Accumulate tool call chunks — OpenAI streams them in pieces
     tool_calls: dict[int, dict] = {}
@@ -56,10 +60,20 @@ async def stream_completion(
         delta = chunk.choices[0].delta
         finish_reason = chunk.choices[0].finish_reason
 
+        if ttft_ms is None and (delta.content or delta.tool_calls):
+            kind = "text" if delta.content else "tool call"
+            ttft_ms = mark_latency(span, f"first {kind} token received", "llm.latency.time_to_first_token_ms")
+
+        if finish_reason:
+            total_ms = mark_latency(span, f"response complete ({finish_reason})", "llm.latency.total_ms")
+            if span and ttft_ms is not None and total_ms is not None:
+                span.set_attribute("llm.latency.generation_ms", round(total_ms - ttft_ms, 1))
+
         # Stream text tokens
         if delta.content:
             if interrupted and interrupted.is_set():
                 logger.info("stream interrupted — stopping early")
+                mark_latency(span, "interrupted by caller", "llm.latency.interrupted_at_ms")
                 await stream.close()
                 return
             yield TextToken(content=delta.content)

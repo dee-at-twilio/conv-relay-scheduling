@@ -30,6 +30,15 @@ class DTMFMessage(BaseModel):
 
 class InterruptMessage(BaseModel):
     type: Literal["interrupt"]
+    utteranceUntilInterrupt: str | None = None  # what the caller heard before cutting in
+    durationUntilInterruptMs: int | None = None
+
+
+class InfoMessage(BaseModel):
+    """Sent when subscribed via the TwiML `events` attribute (agentSpeaking, clientSpeaking, tokensPlayed, ...)."""
+    type: Literal["info"]
+    name: str | None = None
+    value: Any = None
 
 
 class ErrorMessage(BaseModel):
@@ -73,7 +82,7 @@ class EndSessionMessage(BaseModel):
     handoffData: str | None = None  # JSON-encoded string
 
 
-def parse_inbound(data: dict[str, Any]) -> SetupMessage | PromptMessage | DTMFMessage | InterruptMessage | ErrorMessage | None:
+def parse_inbound(data: dict[str, Any]) -> SetupMessage | PromptMessage | DTMFMessage | InterruptMessage | InfoMessage | ErrorMessage | None:
     t = data.get("type")
     match t:
         case "setup":
@@ -87,6 +96,8 @@ def parse_inbound(data: dict[str, Any]) -> SetupMessage | PromptMessage | DTMFMe
             return DTMFMessage(**data)
         case "interrupt":
             return InterruptMessage(**data)
+        case "info":
+            return InfoMessage(**data)
         case "error":
             return ErrorMessage(**data)
         case _:

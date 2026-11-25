@@ -1,9 +1,14 @@
 from __future__ import annotations
+import logging
 from abc import ABC, abstractmethod
 from typing import Any
 
+from opentelemetry import trace
+
 from src.models.session import SessionState
 from src.models.tools import ToolResult
+
+logger = logging.getLogger(__name__)
 
 
 class BaseTool(ABC):
@@ -52,4 +57,11 @@ class ToolRegistry:
         tool = self._tools.get(name)
         if not tool:
             return ToolResult(tool_name=name, success=False, error=f"Unknown tool: {name}")
-        return await tool.run(args, state)
+        try:
+            return await tool.run(args, state)
+        except Exception as exc:
+            # Always hand back a result: an unanswered tool_call corrupts the history and every later
+            # LLM request in the call fails with a 400.
+            logger.exception("tool=%s raised callSid=%s args=%s", name, state.call_sid, args)
+            trace.get_current_span().record_exception(exc)  # the tool span, when tracing
+            return ToolResult(tool_name=name, success=False, error=f"Tool error: {exc}")

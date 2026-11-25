@@ -10,6 +10,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 _RECONNECT_ERROR_CODE = 64105
+# Speaker + playback events let tracing measure STT and TTS latency (see src/twilio/turn_timeline.py)
+_RELAY_EVENTS = "speaker-events tokens-played"
+_WELCOME_GREETING = "Hello. How can I help you today?"
 
 
 def _evaluate_status_callback(data: dict) -> dict | None:
@@ -30,13 +33,16 @@ async def incoming_call():
     logger.info("incoming call received")
     response = VoiceResponse()
     connect = Connect(action=config.http_url + "/action")
-    connect.conversation_relay(
+    relay = connect.conversation_relay(
         url=config.ws_url,
-        welcome_greeting="Hello. How can I help you today?",
+        welcome_greeting=_WELCOME_GREETING,
         voice=config.tts_voice,
         language=config.tts_language,
-        transcription_language=config.transcription_language
+        transcription_language=config.transcription_language,
+        events=_RELAY_EVENTS,
     )
+    # Echoed back in the setup message so tracing knows what the agent said before the first turn
+    relay.parameter(name="welcome_greeting", value=_WELCOME_GREETING)
     response.append(connect)
     logger.info("incoming-call → ConversationRelay ws=%s", config.ws_url)
     return Response(content=str(response), media_type="application/xml")
@@ -102,7 +108,8 @@ async def action_callback(request: Request):
             ttsProvider=config.tts_provider,
             transcriptionProvider=config.transcription_provider,
             stt_speechModel=config.speechModel,
-            transcription_language=config.transcription_language
+            transcription_language=config.transcription_language,
+            events=_RELAY_EVENTS,
         )
         response.append(connect)
         return Response(content=str(response), media_type="application/xml")

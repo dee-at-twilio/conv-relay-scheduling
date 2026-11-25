@@ -17,6 +17,16 @@ _BUSINESS_END_HOUR = 17
 _HONORIFICS = {"dr", "dr.", "doctor", "mr", "mr.", "mrs", "mrs.", "ms", "ms."}
 
 
+def _parse_date(value: Any) -> date | None:
+    """Accept 'YYYY-MM-DD' or a full ISO datetime ('2026-11-30T11:00:00') — the LLM sends both."""
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(str(value)).date()
+    except ValueError:
+        raise ValueError(f"Invalid date {value!r}") from None
+
+
 def _generate_slots(from_date: date, to_date: date, booked: list) -> list[dict]:
     booked_ranges = [(a.start_time, a.end_time) for a in booked]
     slots = []
@@ -76,8 +86,11 @@ class CheckAvailabilityTool(BaseTool):
     async def run(self, args: dict[str, Any], state: SessionState) -> ToolResult:
         provider_name = args.get("provider_name", "")
         today = date.today()
-        from_date = date.fromisoformat(args["from_date"]) if args.get("from_date") else today
-        to_date = date.fromisoformat(args["to_date"]) if args.get("to_date") else today + timedelta(days=7)
+        try:
+            from_date = _parse_date(args.get("from_date")) or today
+            to_date = _parse_date(args.get("to_date")) or from_date + timedelta(days=7)
+        except ValueError as exc:
+            return ToolResult(tool_name=self.name, success=False, error=f"{exc}. Use dates in YYYY-MM-DD format.")
 
         words = [w.lower() for w in provider_name.split() if w.lower() not in _HONORIFICS]
 
